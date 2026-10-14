@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-jakarta), "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-bengali: var(--font-bn), "Noto Sans Bengali", sans-serif;
+
+  --color-paper: #f4f6f8;
+  --color-card: #ffffff;
+  --color-ink: #16181d;
+  --color-muted: #5e6772;
+  --color-faint: #7a8390;
+  --color-line: #e4e7ee;
+  --color-chip: #eef1f5;
+  --color-primary: #1568d6;
+  --color-primary-deep: #0f56b8;
+  --color-call: #0e7c4b;
+  --color-call-deep: #0c6840;
+  --color-amber: #a16207;
+  --color-on-primary: #ffffff;
+
+  --shadow-card: 0 1px 2px rgb(22 24 29 / 0.05), 0 12px 32px rgb(22 24 29 / 0.06);
+  --shadow-pop: 0 16px 50px rgb(22 24 29 / 0.16);
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    line-height: 1.5;
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+  ::selection {
+    background: color-mix(in srgb, var(--color-primary) 22%, white);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+}
+
+@layer components {
+  .field {
+    @apply min-h-12 w-full rounded-xl border border-line bg-card px-3 py-3 text-sm text-ink outline-none transition placeholder:text-faint focus:border-primary focus:ring-2 focus:ring-primary/20;
+  }
+  .label {
+    @apply text-xs font-semibold tracking-wide text-faint uppercase;
+  }
+}

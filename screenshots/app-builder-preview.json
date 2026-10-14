@@ -1,0 +1,36 @@
+{
+  "url": "http://127.0.0.1:8080/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "MyRoom — Find a room in Dhaka",
+      "hasCanvas": false,
+      "bodyTextLen": 3454,
+      "bodyTextHash": "03fc4cefc86896f775a6036c7db46232eaf301c70cad809cd1d40265a448e501",
+      "bodyTextPrefix": "Skip to content MyRoom Find a room, rent a room, for business Ex",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "MyRoom — Find a room in Dhaka",
+      "hasCanvas": false,
+      "bodyTextLen": 3371,
+      "bodyTextHash": "11cca9810f4b3a1a0c475f1e4b0074af332d541e958e2633490c03576b0679de",
+      "bodyTextPrefix": "Skip to content MyRoom FIND YOUR ROOM, IN SECONDS Account Rooms ",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-preview.json"
+}
