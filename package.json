@@ -7,8 +7,8 @@
     "nf3": "0.3.17"
   },
   "scripts": {
-    "dev": "next dev --hostname 0.0.0.0 --port 8080",
-    "build": "next build",
+    "dev": "node api.js && next dev --hostname 0.0.0.0 --port 8080",
+    "build": "node api.js && next build",
     "db:migrate": "node scripts/migrate.mjs",
     "build:dev": "node scripts/with-app-env.mjs vite build --mode development",
     "preview": "next start --hostname 127.0.0.1 --port 8081",
@@ -61,6 +61,7 @@
     "@tiptap/pm": "^3.31.4",
     "@tiptap/react": "^3.31.4",
     "@tiptap/starter-kit": "^3.31.4",
+    "@types/pg": "^8.23.1",
     "@vitejs/plugin-react": "^5.2.0",
     "better-auth": "~1.6.30",
     "bowser": "^2.14.1",
@@ -101,7 +102,6 @@
     "@eslint/js": "^9.20.0",
     "@types/dompurify": "^3.0.5",
     "@types/node": "^22.16.5",
-    "@types/pg": "^8.23.1",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "eslint": "^9.20.0",
