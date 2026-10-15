@@ -20,7 +20,7 @@ export const reportApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     recoredReport: builder.mutation<
       RoomReportResponse,
-      { roomId: string; reportType: string }
+      { roomId: string; reportType: string, ipAddress?: string }
     >({
       query: (report) => ({
         url: "/report_room/",

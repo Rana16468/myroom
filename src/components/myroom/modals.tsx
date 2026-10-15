@@ -38,7 +38,7 @@ const DATE_OPTIONS = [
   { value: "2026-10-20", label: "20 October" },
 ];
 
-const REPORT_REASONS = [ "Wrong_Number", "Misleading_Photos", "Scam_OR_Spam"];
+const REPORT_REASONS = ["Wrong_Number", "Misleading_Photos", "Scam_OR_Spam"];
 
 // Helper to validate Bangladeshi Phone Numbers (11 digits starting with 013-019)
 export const isValidBdPhone = (phone: string) => /^01[3-9]\d{8}$/.test(phone);
@@ -47,7 +47,7 @@ export const isValidBdPhone = (phone: string) => /^01[3-9]\d{8}$/.test(phone);
 export type GoogleAuthProfile = {
   name: string;
   email: string;
-  phone?: string; 
+  phone?: string;
   os: string;
   photo?: string;
   browser: string;
@@ -64,7 +64,10 @@ type GoogleClaims = {
 };
 
 // Helper function to extract user device info & IP address
-async function createGoogleAuthProfile(credential: string, phone?: string): Promise<GoogleAuthProfile> {
+async function createGoogleAuthProfile(
+  credential: string,
+  phone?: string,
+): Promise<GoogleAuthProfile> {
   const encodedPayload = credential.split(".")[1];
   if (!encodedPayload) throw new Error("Google returned an invalid credential.");
 
@@ -74,7 +77,9 @@ async function createGoogleAuthProfile(credential: string, phone?: string): Prom
   const payloadBytes = Uint8Array.from(binaryPayload, (character) => character.charCodeAt(0));
   const claims = JSON.parse(new TextDecoder().decode(payloadBytes)) as GoogleClaims;
 
-  const deviceInfo = Bowser.getParser(typeof window !== "undefined" ? navigator.userAgent : "").getResult();
+  const deviceInfo = Bowser.getParser(
+    typeof window !== "undefined" ? navigator.userAgent : "",
+  ).getResult();
   const ipInfoUrl = process.env.NEXT_PUBLIC_IP_INFO_URL ?? "https://api.ipify.org?format=json";
 
   let ipAddress = "N/A";
@@ -90,7 +95,7 @@ async function createGoogleAuthProfile(credential: string, phone?: string): Prom
   return {
     name: claims.name || "Unknown",
     email: claims.email || "Unknown",
-    ...(phone ? { phone } : {}), // একাউন্ট ক্রিয়েটের সময় থাকলে ফোন নম্বর যুক্ত হবে
+    ...(phone ? { phone } : {}),
     photo: claims.picture,
     os: `${deviceInfo.os.name || "Unknown"} ${deviceInfo.os.version || ""}`.trim(),
     browser: deviceInfo.browser.name || "Unknown",
@@ -105,6 +110,7 @@ async function createGoogleAuthProfile(credential: string, phone?: string): Prom
 export function Modals() {
   const filterOpen = useAppSelector((state) => state.ui.filterOpen);
   const step = useAppSelector((state) => state.session.step);
+
   const callId = useAppSelector((state) => state.ui.callId);
   const reportId = useAppSelector((state) => state.ui.reportId);
   const locked = filterOpen || step !== "closed" || Boolean(callId) || Boolean(reportId);
@@ -148,7 +154,10 @@ function Backdrop({
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/45 p-4" role="presentation">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/45 p-4"
+      role="presentation"
+    >
       <button type="button" className="absolute inset-0" aria-label={label} onClick={onClose} />
       <div
         role="dialog"
@@ -274,6 +283,7 @@ function AccountModal() {
     try {
       const profile = await createGoogleAuthProfile(response.credential);
       const res = await createAccount(profile).unwrap();
+
       if (!tokenRecorded(res.data?.accessToken, TOKEN_NAME)) {
         throw new Error("Could not save the login token.");
       }
@@ -284,9 +294,16 @@ function AccountModal() {
           phone: profile.phone ?? "",
         }),
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error during Google login:", error);
-      setErrorMsg("Could not log you in. Please try again.");
+
+      const backendMessage = error?.data?.message || error?.message || "";
+      if (backendMessage.includes("Phone number is required")) {
+        dispatch(showCreate());
+        setErrorMsg("Account not found. Please enter your mobile number and complete setup.");
+      } else {
+        setErrorMsg(backendMessage || "Could not log you in. Please try again.");
+      }
     } finally {
       setBusy(false);
     }
@@ -335,9 +352,9 @@ function AccountModal() {
           phone: draftPhone,
         }),
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating account:", error);
-      setErrorMsg("Could not create your account. Please try again.");
+      setErrorMsg(error?.data?.message || "Could not create your account. Please try again.");
     } finally {
       setBusy(false);
     }
@@ -363,13 +380,15 @@ function AccountModal() {
         </button>
       </div>
 
-      {step === "login" ? (
-        /* ==================== LOG IN FLOW ==================== */
+      {step === "login" || (step !== "create" && !pendingProfile) ? (
+        /* ==================== LOG IN FLOW (FIRST) ==================== */
         <div className="px-1 pb-3 text-center">
           <h2 className="text-2xl font-semibold tracking-tight">Log in</h2>
           <p className="mt-1 text-sm text-muted">Quick log in with your Google account</p>
 
-          <div className={`mt-6 flex justify-center ${busy ? "pointer-events-none opacity-50" : ""}`}>
+          <div
+            className={`mt-6 flex justify-center ${busy ? "pointer-events-none opacity-50" : ""}`}
+          >
             <GoogleLogin
               onSuccess={handleLoginSuccess}
               onError={() => setErrorMsg("Google login failed. Please try again.")}
@@ -381,7 +400,11 @@ function AccountModal() {
             />
           </div>
 
-          {errorMsg && <p role="alert" className="mt-3 text-xs text-red-500">{errorMsg}</p>}
+          {errorMsg && (
+            <p role="alert" className="mt-3 text-xs text-red-500">
+              {errorMsg}
+            </p>
+          )}
 
           <p className="mt-5 text-center text-sm text-muted">
             New here?{" "}
@@ -394,8 +417,8 @@ function AccountModal() {
             </button>
           </p>
         </div>
-      ) : !pendingProfile ? (
-        /* ==================== CREATE ACCOUNT FLOW ==================== */
+      ) : step === "create" && !pendingProfile ? (
+        /* ==================== CREATE ACCOUNT FLOW (SECOND) ==================== */
         <div className="px-1 pb-3 text-center">
           <h2 className="text-2xl font-semibold tracking-tight">Create Account</h2>
           <p className="mt-1 text-sm text-muted">Enter your mobile number to start setup</p>
@@ -424,12 +447,18 @@ function AccountModal() {
             </p>
           )}
 
-          {errorMsg && <p role="alert" className="mt-3 text-left text-xs text-red-500">{errorMsg}</p>}
+          {errorMsg && (
+            <p role="alert" className="mt-3 text-left text-xs text-red-500">
+              {errorMsg}
+            </p>
+          )}
 
           {isPhoneValid && (
             <div className="mt-6">
               <p className="mb-3 text-xs text-muted">Authenticate to complete account creation</p>
-              <div className={`flex justify-center ${busy ? "pointer-events-none opacity-50" : ""}`}>
+              <div
+                className={`flex justify-center ${busy ? "pointer-events-none opacity-50" : ""}`}
+              >
                 <GoogleLogin
                   onSuccess={handleSignupGoogleSuccess}
                   onError={() => setErrorMsg("Google sign-up failed. Please try again.")}
@@ -455,6 +484,7 @@ function AccountModal() {
           </p>
         </div>
       ) : (
+        /* ==================== ALMOST DONE (NAME CONFIRMATION) ==================== */
         <div className="px-1 pb-3 text-center">
           <h2 className="text-2xl font-semibold tracking-tight">Almost done</h2>
           <p className="mt-1 text-sm text-muted">Review your name and create your account</p>
@@ -471,7 +501,11 @@ function AccountModal() {
             />
           </label>
 
-          {errorMsg && <p role="alert" className="mt-3 text-left text-xs text-red-500">{errorMsg}</p>}
+          {errorMsg && (
+            <p role="alert" className="mt-3 text-left text-xs text-red-500">
+              {errorMsg}
+            </p>
+          )}
 
           <button
             type="button"
@@ -527,7 +561,11 @@ function CallBody({ listing, onClose }: { listing: Listing; onClose: () => void 
         {listing.rent !== undefined ? ` · ${formatRent(listing.rent)} / month` : ""}
       </p>
       <div className="mt-6 grid grid-cols-2 gap-3">
-        <button type="button" className="h-11 rounded-full border border-line text-sm font-semibold" onClick={onClose}>
+        <button
+          type="button"
+          className="h-11 rounded-full border border-line text-sm font-semibold"
+          onClick={onClose}
+        >
           Close
         </button>
         <a
@@ -572,7 +610,20 @@ function ReportModal() {
   }
 
   const submitReport = async () => {
-    const result = await recordedReport({ roomId: reportId, reportType: reason });
+    // ডাইনামিক আইপি ফেচ করার লজিক
+    let ipAddress = "N/A";
+    try {
+      const ipInfoUrl = process.env.NEXT_PUBLIC_IP_INFO_URL ?? "https://api.ipify.org?format=json";
+      const response = await fetch(ipInfoUrl);
+      if (response.ok) {
+        const result = (await response.json()) as { ip?: string };
+        ipAddress = result.ip || "N/A";
+      }
+    } catch {
+      ipAddress = "N/A";
+    }
+
+    const result = await recordedReport({ roomId: reportId, reportType: reason, ipAddress });
     if ("error" in result) return;
 
     const response = result.data;
@@ -583,9 +634,11 @@ function ReportModal() {
     }
 
     dispatch(reportListing(reportId));
-    dispatch(showToast(response.data.success
-      ? response.message
-      : response.data.message || response.message));
+    dispatch(
+      showToast(
+        response.data.success ? response.message : response.data.message || response.message,
+      ),
+    );
   };
 
   return (
@@ -595,7 +648,10 @@ function ReportModal() {
       <fieldset className="mt-4 space-y-2">
         <legend className="sr-only">Reason</legend>
         {REPORT_REASONS.map((item) => (
-          <label key={item} className="flex cursor-pointer items-center gap-3 rounded-xl border border-line px-3 py-2 text-sm">
+          <label
+            key={item}
+            className="flex cursor-pointer items-center gap-3 rounded-xl border border-line px-3 py-2 text-sm"
+          >
             <input
               type="radio"
               name="reason"

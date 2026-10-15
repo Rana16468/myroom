@@ -6,30 +6,19 @@ import { createPortal } from "react-dom";
 import Swal from "sweetalert2";
 import "sweetalert2/dist/sweetalert2.min.css";
 import {
-  AppWindow,
-  BadgeCheck,
-  CalendarDays,
   ChevronLeft,
   ChevronRight,
-  CircleCheck,
   Eye,
   ImageIcon,
   LoaderCircle,
-  Mail,
   MapPin,
-  Monitor,
   Pencil,
-  Phone,
   Plus,
   RefreshCw,
   Search,
-  ShieldCheck,
-  Smartphone,
   Trash2,
   UserRound,
-  UserCog,
   X,
-  type LucideIcon,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { initials, LISTING_TYPES } from "@/data/rooms";
@@ -48,10 +37,6 @@ type Profile = {
   role: string;
   status: string;
   isVerify: boolean;
-  browser?: string;
-  os?: string;
-  device?: string;
-
   createdAt: string;
 };
 
@@ -85,7 +70,7 @@ type CardListing = {
   neighborhood?: string;
   photos: string[];
   views: number;
-  postedAt: string;
+  createdAt?: string;
 };
 
 const formatDate = (value?: string) =>
@@ -96,6 +81,36 @@ const formatDate = (value?: string) =>
         year: "numeric",
       })
     : "recently";
+
+const formatTimeAgo = (iso?: string) => {
+  if (!iso) return "Recently listed";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "Recently listed";
+
+  const now = new Date();
+  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+  if (diffInSeconds < 60) {
+    return "Just now";
+  }
+
+  const diffInMinutes = Math.floor(diffInSeconds / 60);
+  if (diffInMinutes < 60) {
+    return `${diffInMinutes}m ago`;
+  }
+
+  const diffInHours = Math.floor(diffInMinutes / 60);
+  if (diffInHours < 24) {
+    return `${diffInHours}h ago`;
+  }
+
+  const diffInDays = Math.floor(diffInHours / 24);
+  if (diffInDays <= 4) {
+    return `${diffInDays} day${diffInDays > 1 ? "s" : ""} ago`;
+  }
+
+  return formatDate(iso);
+};
 
 const decodeCodePoint = (value: number) =>
   value >= 0 && value <= 0x10ffff && (value < 0xd800 || value > 0xdfff)
@@ -132,7 +147,7 @@ const fromApi = (room: MyRoom): CardListing => ({
   neighborhood: htmlToPlainText(room.neighborhood),
   photos: room.photos ?? [],
   views: room.viewCount ?? 0,
-  postedAt: formatDate(room.createdAt),
+  createdAt: room.createdAt,
 });
 
 export function ProfileView() {
@@ -145,7 +160,7 @@ export function ProfileView() {
   const [selectedType, setSelectedType] = useState("");
   const [type, setType] = useState("");
 
-  const { data, isLoading, error } = useMyProfileQuery({});
+  const { data, isLoading } = useMyProfileQuery({});
   const profile: Profile | undefined = data?.data;
 
   const {
@@ -190,16 +205,16 @@ export function ProfileView() {
   const listings = mylist.map(fromApi);
   const totalCount = meta?.totalCount ?? 0;
 
-  // Profile values from the API (fallback to the session user)
   const name = profile?.name || user.name;
   const email = profile?.email || user.email;
-  const phone = user.phone;
+
   const submitFilters = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setPage(1);
     setSearch(searchInput.trim());
     setType(selectedType);
   };
+
   const clearFilters = () => {
     setSearchInput("");
     setSearch("");
@@ -207,35 +222,9 @@ export function ProfileView() {
     setType("");
     setPage(1);
   };
-  const details: { label: string; value?: string; icon: LucideIcon; accent?: boolean }[] = [
-    { label: "Email", value: email, icon: Mail },
-    { label: "Phone", value: phone, icon: Phone },
-    {
-      label: "Verification",
-      value: profile?.isVerify ? "Verified" : "Not verified",
-      icon: ShieldCheck,
-      accent: profile?.isVerify,
-    },
-    { label: "Browser", value: profile?.browser, icon: AppWindow },
-    { label: "Operating system", value: profile?.os, icon: Monitor },
-    { label: "Device", value: profile?.device, icon: Smartphone },
-    { label: "Role", value: profile?.role, icon: UserCog },
-    {
-      label: "Status",
-      value: profile?.status,
-      icon: CircleCheck,
-      accent: profile?.status === "ACTIVE",
-    },
-    {
-      label: "Member since",
-      value: profile?.createdAt ? formatDate(profile.createdAt) : undefined,
-      icon: CalendarDays,
-    },
-  ];
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-4 pb-10">
-      {/* Top bar */}
       <header className="flex items-center justify-between py-2">
         <div className="flex items-center gap-2">
           <button
@@ -250,91 +239,35 @@ export function ProfileView() {
         </div>
       </header>
 
-      {/* Profile card */}
-      <section className="overflow-hidden rounded-3xl border border-line bg-card shadow-card">
-        <div className="h-2 bg-linear-to-r from-primary via-primary/60 to-amber" />
-        <div className="p-3 sm:p-4">
-          <div className="flex items-center gap-3">
-            {profile?.photo ? (
-              <img
-                src={profile.photo}
-                alt={name}
-                referrerPolicy="no-referrer"
-                className="size-14 shrink-0 rounded-full border-2 border-card object-cover shadow-card ring-2 ring-primary/20 sm:size-16"
-              />
-            ) : (
-              <div className="flex size-14 shrink-0 items-center justify-center rounded-full border-2 border-card bg-primary/10 text-base font-semibold text-primary shadow-card ring-2 ring-primary/20 sm:size-16">
-                {initials(name) || <UserRound className="size-5" aria-hidden="true" />}
-              </div>
-            )}
-            <div className="ml-auto min-w-0 text-right">
-              <p className="flex items-center justify-end gap-1 wrap-break-word text-sm font-bold tracking-tight sm:text-base">
-                {name}
-                {profile?.isVerify ? (
-                  <BadgeCheck className="size-4 shrink-0 text-primary" aria-label="Verified" />
-                ) : null}
-              </p>
-              <p className="mt-0.5 text-xs text-muted">Your MyRoom account</p>
-              {profile?.role ? (
-                <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold capitalize text-primary">
-                  <UserCog className="size-3" aria-hidden="true" />
-                  {profile.role}
-                </span>
-              ) : null}
-              {isLoading ? (
-                <p className="mt-1 flex items-center justify-end gap-1 text-[10px] text-muted">
-                  <LoaderCircle className="size-3 animate-spin" aria-hidden="true" />
-                  Loading profile…
-                </p>
-              ) : null}
+      {/* সিম্পল প্রোফাইল কার্ড (ইমেজ অনুযায়ী সাজানো) */}
+      <section className="overflow-hidden rounded-3xl border border-line bg-card p-4 shadow-card sm:p-5">
+        <div className="flex items-center gap-4">
+          {profile?.photo ? (
+            <img
+              src={profile.photo}
+              alt={name}
+              referrerPolicy="no-referrer"
+              className="size-14 shrink-0 rounded-full border border-line object-cover shadow-sm sm:size-16"
+            />
+          ) : (
+            <div className="flex size-14 shrink-0 items-center justify-center rounded-full bg-chip text-muted shadow-sm sm:size-16">
+              <UserRound className="size-6" aria-hidden="true" />
             </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <h2 className="truncate text-base font-bold tracking-tight text-ink sm:text-lg">
+              {name}
+            </h2>
+            <p className="mt-0.5 truncate text-xs text-muted sm:text-sm">
+              Email : <span className="text-ink font-medium">{email}</span>
+            </p>
           </div>
-
-          {profile ? (
-            <dl className="mt-3 grid grid-cols-1 gap-1.5 border-t border-line pt-3 sm:grid-cols-2 lg:grid-cols-3">
-              {details.map(({ label, value, icon: Icon, accent }) =>
-                value ? (
-                  <div
-                    key={label}
-                    className="flex min-w-0 items-center gap-2 rounded-xl border border-line/70 bg-paper/70 p-2 transition-colors hover:bg-paper"
-                  >
-                    <span
-                      className={`inline-flex size-7 shrink-0 items-center justify-center rounded-lg ${
-                        accent ? "bg-primary/10 text-primary" : "bg-card text-muted"
-                      }`}
-                    >
-                      <Icon className="size-3.5" aria-hidden="true" />
-                    </span>
-                    <div className="min-w-0">
-                      <dt className="text-[9px] font-semibold uppercase tracking-wide text-muted">
-                        {label}
-                      </dt>
-                      <dd
-                        className={`break-all text-xs font-semibold ${
-                          label === "Status" && accent ? "text-green-700" : "text-ink"
-                        }`}
-                      >
-                        {value}
-                      </dd>
-                    </div>
-                  </div>
-                ) : null,
-              )}
-            </dl>
+          {isLoading ? (
+            <LoaderCircle className="size-4 animate-spin text-muted" aria-hidden="true" />
           ) : null}
         </div>
       </section>
 
-      {error ? (
-        <p
-          className="rounded-xl border border-amber/30 bg-amber/10 px-4 py-3 text-sm text-muted"
-          role="status"
-        >
-          Your saved account details are shown, but we couldn’t refresh your profile from the server.
-        </p>
-      ) : null}
-
-      {/* Primary action */}
       <Link
         href="/list"
         className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-on-primary hover:bg-primary-deep"
@@ -343,7 +276,6 @@ export function ProfileView() {
         List Room
       </Link>
 
-      {/* Section header */}
       <div className="flex items-center justify-between pt-2">
         <h2 className="text-sm font-semibold">My Listings</h2>
         <span className="rounded-md bg-chip px-2 py-0.5 text-[10px] font-medium text-muted">
@@ -431,7 +363,6 @@ export function ProfileView() {
         </div>
       </form>
 
-      {/* Listings */}
       {listFetching && !mylist.length ? (
         <p className="py-6 text-center text-sm text-muted">Loading listings...</p>
       ) : listError ? (
@@ -461,7 +392,6 @@ export function ProfileView() {
         </div>
       )}
 
-      {/* Pagination (My Listing only) */}
       {meta && meta.totalPages > 1 ? (
         <div className="flex items-center justify-between gap-2">
           <button
@@ -488,7 +418,6 @@ export function ProfileView() {
         </div>
       ) : null}
 
-      {/* Top cities */}
       <section className="rounded-2xl border border-line bg-card p-4">
         <h2 className="text-center text-sm font-semibold">Top cities</h2>
       </section>
@@ -496,10 +425,6 @@ export function ProfileView() {
   );
 }
 
-/**
- * Card matching the design: poster row, location + address, description with
- * "Read more", optional photo with counter, and Edit / Delete actions.
- */
 function ProfileListingCard({
   listing,
   ownerName,
@@ -511,10 +436,18 @@ function ProfileListingCard({
   editable: boolean;
   highlighted?: boolean;
 }) {
+  const [index, setIndex] = useState(0);
   const [expanded, setExpanded] = useState(false);
   const [photoViewerOpen, setPhotoViewerOpen] = useState(false);
   const [deleteRoom, { isLoading: isDeleting }] = useDeleteRoomListMutation();
-  const photo = listing.photos[0];
+
+  const photos = listing.photos ?? [];
+  const photo = photos[index] ?? photos[0];
+
+  const step = (delta: number) => {
+    if (photos.length < 2) return;
+    setIndex((current) => (current + delta + photos.length) % photos.length);
+  };
 
   const handleDelete = async () => {
     const confirmation = await Swal.fire({
@@ -565,24 +498,19 @@ function ProfileListingCard({
         </span>
         <div className="min-w-0 flex-1">
           <p className="truncate text-xs font-semibold">{ownerName}</p>
-          <p className="mt-0.5 truncate text-xs text-muted">{listing.area || listing.address}</p>
+          <p className="mt-0.5 truncate text-xs text-muted">{formatTimeAgo(listing.createdAt)}</p>
         </div>
         {listing.types ? (
-          <span className="max-w-24 truncate rounded-full bg-chip px-2 py-1 text-xs font-semibold text-primary">
+          <span className="max-w-28 truncate rounded-full bg-chip px-2.5 py-1 text-xs font-semibold text-primary">
             {listing.types}
           </span>
         ) : null}
       </div>
 
-      {listing.area ? (
+      {listing.area || listing.address ? (
         <p className="mt-2 flex items-start gap-1.5 text-xs font-medium text-muted">
           <MapPin className="mt-0.5 size-3 shrink-0 text-primary" aria-hidden="true" />
           <span className="line-clamp-2">{listing.address || listing.area}</span>
-        </p>
-      ) : listing.address ? (
-        <p className="mt-2 flex items-start gap-1.5 text-xs font-medium text-muted">
-          <MapPin className="mt-0.5 size-3 shrink-0 text-primary" aria-hidden="true" />
-          <span className="line-clamp-2">{listing.address}</span>
         </p>
       ) : null}
 
@@ -596,7 +524,7 @@ function ProfileListingCard({
             onClick={() => setExpanded((value) => !value)}
             className="mt-1 self-start text-xs font-semibold text-primary"
           >
-            {expanded ? "See less" : "See more"}
+            {expanded ? "See less" : "Read more"}
           </button>
         </>
       ) : null}
@@ -607,40 +535,62 @@ function ProfileListingCard({
 
       <div className="relative mt-2 aspect-4/3 overflow-hidden rounded-xl bg-chip">
         {photo ? (
-          <button
-            type="button"
-            className="group absolute inset-0 block size-full cursor-zoom-in overflow-hidden"
-            aria-label={`Enlarge listing photo, ${listing.photos.length} photo${listing.photos.length === 1 ? "" : "s"}`}
-            onClick={() => setPhotoViewerOpen(true)}
-          >
-            <img
-              src={photo}
-              alt={`${listing.types || "Room"} listing`}
-              className="h-full w-full object-cover transition-transform duration-300 ease-out group-hover:scale-110 group-focus-visible:scale-110 motion-reduce:transition-none"
-              loading="lazy"
-            />
-            <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-ink/0 opacity-0 transition-opacity group-hover:bg-ink/15 group-hover:opacity-100 group-focus-visible:bg-ink/15 group-focus-visible:opacity-100">
-              <span className="rounded-full bg-ink/65 px-3 py-1.5 text-xs font-semibold text-on-primary shadow-card">
-                Click to enlarge
-              </span>
-            </span>
-          </button>
+          <>
+            <button
+              type="button"
+              className="group absolute inset-0 block size-full cursor-zoom-in overflow-hidden"
+              aria-label={`Enlarge listing photo ${index + 1} of ${photos.length}`}
+              onClick={() => setPhotoViewerOpen(true)}
+            >
+              <img
+                src={photo}
+                alt={`${listing.types || "Room"} listing, photo ${index + 1} of ${photos.length}`}
+                className="h-full w-full object-cover transition-transform duration-300 ease-out group-hover:scale-110 group-focus-visible:scale-110 motion-reduce:transition-none"
+                loading="lazy"
+              />
+            </button>
+
+            {photos.length > 1 ? (
+              <>
+                <button
+                  type="button"
+                  className="absolute top-1/2 left-2 inline-flex size-9 -translate-y-1/2 items-center justify-center rounded-full bg-card/90 text-ink shadow-card z-10"
+                  aria-label="Previous photo"
+                  onClick={() => step(-1)}
+                >
+                  <ChevronLeft className="size-4" />
+                </button>
+                <button
+                  type="button"
+                  className="absolute top-1/2 right-2 inline-flex size-9 -translate-y-1/2 items-center justify-center rounded-full bg-card/90 text-ink shadow-card z-10"
+                  aria-label="Next photo"
+                  onClick={() => step(1)}
+                >
+                  <ChevronRight className="size-4" />
+                </button>
+              </>
+            ) : null}
+          </>
         ) : (
-          <span className="absolute inset-0 flex items-center justify-center text-sm text-muted">
+          <span className="absolute inset-0 flex items-center justify-center text-sm font-medium text-muted">
             No photo yet
           </span>
         )}
-        <span className="absolute bottom-2 left-2 inline-flex items-center gap-1.5 rounded-md bg-ink/80 px-2 py-1 text-xs font-medium text-on-primary">
+
+        <span className="absolute bottom-2 left-2 z-10 inline-flex items-center gap-1.5 rounded-md bg-ink/80 px-2 py-1 text-xs font-medium text-on-primary">
           <Eye className="size-3" aria-hidden="true" />
           <span>{listing.views.toLocaleString()} views</span>
-          {listing.photos.length > 1 ? (
-            <span aria-label={`${listing.photos.length} photos`}>
-              · <ImageIcon className="inline size-3" aria-hidden="true" /> {listing.photos.length}
+          {photos.length > 1 ? (
+            <span aria-label={`Photo ${index + 1} of ${photos.length}`}>
+              · <ImageIcon className="inline size-3" aria-hidden="true" /> {index + 1}/{photos.length}
             </span>
           ) : null}
         </span>
       </div>
-      <p className="mt-2 text-xs text-muted">Posted on {listing.postedAt}</p>
+
+      <div className="mt-2.5 inline-block rounded-lg bg-chip px-2.5 py-1.5 text-xs text-muted">
+        Posted on {formatDate(listing.createdAt)}
+      </div>
 
       {photoViewerOpen && photo ? (
         <ProfilePhotoViewer
@@ -651,10 +601,10 @@ function ProfileListingCard({
       ) : null}
 
       {editable ? (
-        <div className="mt-2 grid grid-cols-2 gap-2">
+        <div className="mt-2.5 grid grid-cols-2 gap-2">
           <Link
             href={`/list?edit=${listing.id}`}
-            className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full border border-line px-3 text-xs font-semibold hover:bg-paper"
+            className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-line bg-card px-3 text-xs font-semibold text-ink hover:bg-chip"
           >
             <Pencil className="size-3.5" aria-hidden="true" />
             Edit Listing
@@ -663,7 +613,7 @@ function ProfileListingCard({
             type="button"
             onClick={() => void handleDelete()}
             disabled={isDeleting}
-            className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full border border-red-200 px-3 text-xs font-semibold text-red-500 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-red-200 bg-card px-3 text-xs font-semibold text-red-500 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isDeleting ? (
               <LoaderCircle className="size-3.5 animate-spin" aria-hidden="true" />
@@ -676,7 +626,7 @@ function ProfileListingCard({
       ) : (
         <Link
           href={`/rooms/${listing.id}`}
-          className="mt-2 inline-flex min-h-9 w-full items-center justify-center rounded-full border border-line text-xs font-semibold hover:bg-paper"
+          className="mt-2.5 inline-flex min-h-10 w-full items-center justify-center rounded-xl border border-line text-xs font-semibold hover:bg-paper"
         >
           View room
         </Link>

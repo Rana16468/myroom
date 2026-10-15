@@ -14,7 +14,7 @@ export type SessionUser = {
   email?: string;
 };
 
-export type AccountStep = "closed" | "create" | "login" | "complete";
+export type AccountStep = "closed" | "login" | "create" | "complete";
 
 type ListingsState = {
   seed: Listing[];

@@ -2,31 +2,23 @@
 
 import DOMPurify from "dompurify";
 import Link from "next/link";
-import {
- 
-  ChevronLeft,
-  ChevronRight,
-  Eye,
-  Flag,
-  MapPin,
-  Phone,
-  Plus,
-  Share2,
-  X,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, Eye, Flag, MapPin, Phone, Plus, Share2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { formatPhone, initials, normalizeListingType, telHref } from "@/data/rooms";
-import { setReportId, showToast, toggleSaved } from "@/store/myroom";
+import { setReportId, showToast } from "@/store/myroom";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { enqueueRoomView, type ViewInteraction } from "@/lib/view-count-queue";
 import type { PublicRoomListing } from "../redux/features/roomListApi";
-import { useRecoredReportMutation } from "../redux/features/reportApi";
 
 export type ApiListing = PublicRoomListing;
 
 const stripHtml = (html: string) =>
-  html.replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
+  html
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 
 const formatDate = (iso?: string) => {
   if (!iso) return "Recently listed";
@@ -34,6 +26,36 @@ const formatDate = (iso?: string) => {
   return Number.isNaN(date.getTime())
     ? "Recently listed"
     : date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+};
+
+const formatTimeAgo = (iso?: string) => {
+  if (!iso) return "Recently listed";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "Recently listed";
+
+  const now = new Date();
+  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+  if (diffInSeconds < 60) {
+    return "Just now";
+  }
+
+  const diffInMinutes = Math.floor(diffInSeconds / 60);
+  if (diffInMinutes < 60) {
+    return `${diffInMinutes}m ago`;
+  }
+
+  const diffInHours = Math.floor(diffInMinutes / 60);
+  if (diffInHours < 24) {
+    return `${diffInHours}h ago`;
+  }
+
+  const diffInDays = Math.floor(diffInHours / 24);
+  if (diffInDays <= 4) {
+    return `${diffInDays} day${diffInDays > 1 ? "s" : ""} ago`;
+  }
+
+  return formatDate(iso);
 };
 
 const CALL_UNAVAILABLE_MESSAGE = "The host’s phone number isn’t available for this room.";
@@ -44,7 +66,13 @@ function isCallableBdPhone(value: string | undefined): value is string {
   return /^(?:01[3-9]\d{8}|8801[3-9]\d{8})$/.test(digits);
 }
 
-export function ListingCard({ listing, highlighted }: { listing: ApiListing; highlighted?: boolean }) {
+export function ListingCard({
+  listing,
+  highlighted,
+}: {
+  listing: ApiListing;
+  highlighted?: boolean;
+}) {
   const dispatch = useAppDispatch();
   const saved = useAppSelector((state) => state.ui.savedIds.includes(listing.id));
   const reported = useAppSelector((state) => state.ui.reportedIds.includes(listing.id));
@@ -55,15 +83,18 @@ export function ListingCard({ listing, highlighted }: { listing: ApiListing; hig
 
   const photos = listing.photos ?? [];
   const photo = photos[index] ?? photos[0];
-  const crumbs = (listing.area ?? "").split(">").map((s) => s.trim()).filter(Boolean).join(" › ");
+  const crumbs = (listing.area ?? "")
+    .split(">")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .join(" › ");
   const plainAddress = stripHtml(listing.address ?? "");
   const plainDescription = stripHtml(listing.description ?? "");
   const ownerName = listing.user?.name || listing.name || "MyRoom member";
   const phoneCandidate = listing.phone?.trim() || listing.user?.phone?.trim();
   const phone = isCallableBdPhone(phoneCandidate) ? phoneCandidate : undefined;
   const typeLabel = normalizeListingType(listing.types) ?? listing.types;
- 
-  
+
   const recordView = (interaction: ViewInteraction) => {
     void enqueueRoomView(listing.id, interaction).catch((error: unknown) => {
       console.error(`Could not queue the ${interaction} view for room ${listing.id}.`, error);
@@ -119,12 +150,11 @@ export function ListingCard({ listing, highlighted }: { listing: ApiListing; hig
         </div>
         <div className="min-w-0 flex-1">
           <h2 className="truncate text-xs font-semibold leading-tight">{ownerName}</h2>
-          <p className="mt-0.5 truncate text-xs text-muted">{crumbs}</p>
+          <p className="mt-0.5 truncate text-xs text-muted">{formatTimeAgo(listing.createdAt)}</p>
         </div>
-        <span className="max-w-24 truncate rounded-full bg-chip px-2 py-1 text-xs font-semibold text-primary">
+        <span className="max-w-28 truncate rounded-full bg-chip px-2.5 py-1 text-xs font-semibold text-primary">
           {typeLabel}
         </span>
-        
       </div>
 
       <p className="mt-2 flex items-start gap-1.5 text-xs font-medium text-muted">
@@ -149,15 +179,11 @@ export function ListingCard({ listing, highlighted }: { listing: ApiListing; hig
           setExpanded((open) => !open);
         }}
       >
-        {expanded ? "See less" : "See more"}
+        {expanded ? "See less" : "Read more"}
       </button>
 
-      {expanded && listing.neighborhood ? (
-        <p className="mt-1 text-xs text-muted">{listing.neighborhood}</p>
-      ) : null}
-
-      <div className="relative mt-2 aspect-4/3 overflow-hidden rounded-xl bg-chip">
-        {photo ? (
+      {photos.length > 0 ? (
+        <div className="relative mt-2 aspect-4/3 overflow-hidden rounded-xl bg-chip">
           <button
             type="button"
             className="group absolute inset-0 block size-full cursor-zoom-in overflow-hidden focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
@@ -173,91 +199,77 @@ export function ListingCard({ listing, highlighted }: { listing: ApiListing; hig
               className="h-full w-full object-cover transition-transform duration-300 ease-out group-hover:scale-110 group-focus-visible:scale-110 motion-reduce:transition-none"
               loading="lazy"
             />
-            <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-ink/0 text-on-primary opacity-0 transition-opacity group-hover:bg-ink/15 group-hover:opacity-100 group-focus-visible:bg-ink/15 group-focus-visible:opacity-100">
-              <span className="rounded-full bg-ink/65 px-3 py-1.5 text-xs font-semibold shadow-card">
-                Click to enlarge
-              </span>
-            </span>
           </button>
-        ) : null}
-        {photos.length > 1 ? (
-          <>
-            <button
-              type="button"
-              className="absolute top-1/2 left-2 inline-flex size-9 -translate-y-1/2 items-center justify-center rounded-full bg-card/90 text-ink shadow-card"
-              aria-label="Previous photo"
-              onClick={() => step(-1)}
-            >
-              <ChevronLeft className="size-4" />
-            </button>
-            <button
-              type="button"
-              className="absolute top-1/2 right-2 inline-flex size-9 -translate-y-1/2 items-center justify-center rounded-full bg-card/90 text-ink shadow-card"
-              aria-label="Next photo"
-              onClick={() => step(1)}
-            >
-              <ChevronRight className="size-4" />
-            </button>
-          </>
-        ) : null}
-        <span className="absolute bottom-2 left-2 inline-flex items-center gap-1.5 rounded-md bg-ink/80 px-2 py-1 text-xs font-medium text-on-primary">
-          <Eye className="size-3" aria-hidden="true" />
-          <span>{(listing.viewCount ?? 0).toLocaleString()} views</span>
-          {photos.length > 1 ? <span aria-label={`Photo ${index + 1} of ${photos.length}`}>· {index + 1}/{photos.length}</span> : null}
-        </span>
-        <Link
-          href="/list"
-          className="absolute right-2 bottom-2 inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-semibold text-on-primary shadow-card transition hover:bg-primary-deep"
-          onClick={() => recordView("list")}
-        >
-          <Plus className="size-3.5" aria-hidden="true" />
-          List Room
-        </Link>
-        {photos.length === 0 ? (
-          <span className="absolute inset-0 flex items-center justify-center text-sm text-muted">No photo yet</span>
-        ) : null}
+
+          {photos.length > 1 ? (
+            <>
+              <button
+                type="button"
+                className="absolute top-1/2 left-2 inline-flex size-9 -translate-y-1/2 items-center justify-center rounded-full bg-card/90 text-ink shadow-card"
+                aria-label="Previous photo"
+                onClick={() => step(-1)}
+              >
+                <ChevronLeft className="size-4" />
+              </button>
+              <button
+                type="button"
+                className="absolute top-1/2 right-2 inline-flex size-9 -translate-y-1/2 items-center justify-center rounded-full bg-card/90 text-ink shadow-card"
+                aria-label="Next photo"
+                onClick={() => step(1)}
+              >
+                <ChevronRight className="size-4" />
+              </button>
+            </>
+          ) : null}
+        </div>
+      ) : null}
+
+      <div className="mt-2.5 inline-block rounded-lg bg-chip px-2.5 py-1.5 text-xs text-muted">
+        Posted on {formatDate(listing.createdAt)}
       </div>
-      <p className="mt-2 text-xs text-muted">Posted on {formatDate(listing.createdAt)}</p>
 
-      {reported ? <p className="mt-2 text-xs font-medium text-amber">You reported this listing.</p> : null}
+      {reported ? (
+        <p className="mt-2 text-xs font-medium text-amber">You reported this listing.</p>
+      ) : null}
 
-      <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto_auto] gap-1.5">
+      <div className="mt-2.5 grid grid-cols-3 gap-2">
         <button
           type="button"
-          className="inline-flex min-h-9 min-w-0 items-center justify-center gap-1 rounded-full bg-call px-2 text-xs font-semibold text-on-primary transition hover:bg-call-deep"
+          className="inline-flex min-h-10 min-w-0 items-center justify-center gap-1.5 rounded-xl bg-call px-2 text-xs font-semibold text-on-primary transition hover:bg-call-deep"
           onClick={() => {
             recordView("direct-call");
             setCallModalOpen(true);
           }}
         >
-          <Phone className="size-3 shrink-0" />
-          <span className="truncate">Direct call</span>
+          <Phone className="size-3.5 shrink-0" />
+          <span className="truncate">Direct Call</span>
         </button>
         <button
           type="button"
-          className="inline-flex min-h-9 items-center justify-center gap-1 rounded-full border border-line bg-card px-2 text-xs font-medium text-ink hover:bg-chip"
+          className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-line bg-card px-2 text-xs font-semibold text-ink hover:bg-chip"
           aria-label="Share listing"
           onClick={() => {
             recordView("share");
             void share();
           }}
         >
-          <Share2 className="size-3" />
+          <Share2 className="size-3.5" />
           <span>Share</span>
         </button>
         <button
           type="button"
-          className="inline-flex min-h-9 items-center justify-center gap-1 rounded-full border border-line bg-card px-2 text-xs font-medium text-ink hover:bg-chip"
+          className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-line bg-card px-2 text-xs font-semibold text-ink hover:bg-chip"
           aria-label={reported ? "Report this listing again" : "Report listing"}
           onClick={() => {
             recordView("report");
             dispatch(setReportId(listing.id));
           }}
         >
-          <Flag className="size-3" />
+          <Flag className="size-3.5" />
           <span>Report</span>
         </button>
       </div>
+
       {callModalOpen ? (
         <CallNumberModal
           phone={phone}
