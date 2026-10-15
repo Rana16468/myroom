@@ -7,8 +7,8 @@
     "nf3": "0.3.17"
   },
   "scripts": {
-    "dev": "next dev --hostname 0.0.0.0 --port 8080",
-    "build": "next build",
+    "dev": "node api.js && next dev --hostname 0.0.0.0 --port 8080",
+    "build": "node api.js && next build",
     "db:migrate": "node scripts/migrate.mjs",
     "build:dev": "node scripts/with-app-env.mjs vite build --mode development",
     "preview": "next start --hostname 127.0.0.1 --port 8081",
