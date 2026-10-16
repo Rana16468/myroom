@@ -111,6 +111,7 @@ export function Modals() {
   const filterOpen = useAppSelector((state) => state.ui.filterOpen);
   const step = useAppSelector((state) => state.session.step);
 
+ 
   const callId = useAppSelector((state) => state.ui.callId);
   const reportId = useAppSelector((state) => state.ui.reportId);
   const locked = filterOpen || step !== "closed" || Boolean(callId) || Boolean(reportId);

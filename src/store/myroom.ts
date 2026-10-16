@@ -123,7 +123,7 @@ const sessionSlice = createSlice({
   } as SessionState,
   reducers: {
     openAccount(state) {
-      state.step = state.user ? "closed" : "create";
+      state.step = state.user ? "closed" : "login";
     },
     closeAccount(state) {
       state.step = "closed";

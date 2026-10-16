@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { ChevronLeft, ChevronRight, LoaderCircle, RefreshCw, Search, X } from "lucide-react";
 import { LISTING_TYPES } from "@/data/rooms";
 import { ListingCard, type ApiListing } from "@/components/myroom/listing-card";
 import locationData from "@/utility/locations.json";
 import { useGetAllRoomListQuery } from "../redux/features/roomListApi";
+import { useSearchParams } from "next/navigation";
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE =12 ;
 const SUGGESTION_LIMIT = 8;
 
 function normalizeLocationQuery(value: string) {
@@ -22,10 +23,18 @@ function getLocationSuggestions(query: string) {
     .filter((entry) => {
       const label = normalizeLocationQuery(entry.label);
       const name = normalizeLocationQuery(entry.name);
-      const segments = normalizeLocationQuery(entry.segments.map((segment) => segment.name).join(" "));
-      return label.includes(normalizedQuery) || name.includes(normalizedQuery) || segments.includes(normalizedQuery);
+      const segments = normalizeLocationQuery(
+        entry.segments.map((segment) => segment.name).join(" "),
+      );
+      return (
+        label.includes(normalizedQuery) ||
+        name.includes(normalizedQuery) ||
+        segments.includes(normalizedQuery)
+      );
     })
-    .sort((first, second) => second.weight - first.weight || first.label.localeCompare(second.label))
+    .sort(
+      (first, second) => second.weight - first.weight || first.label.localeCompare(second.label),
+    )
     .slice(0, SUGGESTION_LIMIT);
 }
 
@@ -70,7 +79,8 @@ function getPageNumbers(current: number, total: number): (number | "…")[] {
   return pages;
 }
 
-export function ExploreView() {
+// মূল লজিক কম্পোনেন্ট যেখানে useSearchParams ব্যবহার হচ্ছে
+function ExploreContent() {
   const isDesktop = useIsDesktop();
   const [query, setQuery] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -90,8 +100,15 @@ export function ExploreView() {
     return p;
   }, [page, searchQuery, type]);
 
-  const { currentData, isLoading, isFetching, error, refetch } = useGetAllRoomListQuery(params);
+  const searchParams = useSearchParams();
+  const roomId = searchParams.get("room");
 
+  const queryArgs = {
+    ...params,
+    ...(roomId ? { id: roomId } : {}),
+  };
+
+  const { currentData, isLoading, isFetching, error, refetch } = useGetAllRoomListQuery(queryArgs);
   const pageItems: ApiListing[] = currentData?.data?.data ?? [];
   const meta = currentData?.data?.meta;
   const totalPages: number = meta?.totalPages ?? 1;
@@ -182,7 +199,7 @@ export function ExploreView() {
           onSubmit={submitFilters}
           className="rounded-2xl border border-line bg-card p-3 shadow-card sm:p-4"
         >
-           <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+          <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
             <label className="relative block">
               <span className="sr-only">Search rooms by location or keyword</span>
               <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-faint" />
@@ -212,8 +229,14 @@ export function ExploreView() {
                   } else if (event.key === "ArrowUp" && suggestions.length > 0) {
                     event.preventDefault();
                     setSuggestionsOpen(true);
-                    setActiveSuggestion((index) => (index - 1 + suggestions.length) % suggestions.length);
-                  } else if (event.key === "Enter" && suggestionsOpen && suggestions[activeSuggestion]) {
+                    setActiveSuggestion(
+                      (index) => (index - 1 + suggestions.length) % suggestions.length,
+                    );
+                  } else if (
+                    event.key === "Enter" &&
+                    suggestionsOpen &&
+                    suggestions[activeSuggestion]
+                  ) {
                     event.preventDefault();
                     selectSuggestion(suggestions[activeSuggestion].name);
                   } else if (event.key === "Escape") {
@@ -261,7 +284,9 @@ export function ExploreView() {
                       }`}
                     >
                       <span className="block font-medium">{suggestion.name}</span>
-                      <span className="mt-0.5 block truncate text-xs text-muted">{suggestion.label}</span>
+                      <span className="mt-0.5 block truncate text-xs text-muted">
+                        {suggestion.label}
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -276,45 +301,43 @@ export function ExploreView() {
               >
                 <option value="">Types</option>
                 {LISTING_TYPES.map((roomType) => (
-                  <option key={roomType} value={roomType}>{roomType}</option>
+                  <option key={roomType} value={roomType}>
+                    {roomType}
+                  </option>
                 ))}
               </select>
             </label>
             <button
-            type="submit"
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-on-primary transition hover:bg-primary-deep"
+              type="submit"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-on-primary transition hover:bg-primary-deep"
             >
-            <Search className="size-4" aria-hidden="true" />
-            Search
+              <Search className="size-4" aria-hidden="true" />
+              Search
             </button>
           </div>
-         
+
           <div className="mt-2 flex items-center justify-between gap-2 text-xs text-muted">
-            <span>
-            {/* {initialLoading
-              ? "Finding rooms…"
-              : `${totalCount} ${totalCount === 1 ? "room" : "rooms"} found`} */}
-            </span>
+            <span></span>
             <div className="flex items-center gap-3">
-            {(searchQuery || type || query || selectedType) ? (
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="inline-flex min-h-8 items-center gap-1 font-semibold text-primary hover:underline"
-            >
-              <X className="size-3.5" aria-hidden="true" />
-              Clear filters
-            </button>
-            ) : null}
-            <button
-              type="button"
-              onClick={() => void refetch()}
-              disabled={isFetching}
-              className="inline-flex size-9 items-center justify-center rounded-full border border-line bg-card text-muted transition hover:bg-chip hover:text-ink disabled:opacity-60"
-              aria-label="Refresh room listings"
-            >
-              <RefreshCw className={`size-4 ${isFetching ? "animate-spin" : ""}`} />
-            </button>
+              {searchQuery || type || query || selectedType ? (
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="inline-flex min-h-8 items-center gap-1 font-semibold text-primary hover:underline"
+                >
+                  <X className="size-3.5" aria-hidden="true" />
+                  Clear filters
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => void refetch()}
+                disabled={isFetching}
+                className="inline-flex size-9 items-center justify-center rounded-full border border-line bg-card text-muted transition hover:bg-chip hover:text-ink disabled:opacity-60"
+                aria-label="Refresh room listings"
+              >
+                <RefreshCw className={`size-4 ${isFetching ? "animate-spin" : ""}`} />
+              </button>
             </div>
           </div>
         </form>
@@ -369,7 +392,10 @@ export function ExploreView() {
 
       {/* Desktop: page buttons */}
       {isDesktop && totalPages > 1 ? (
-        <nav className="mt-8 flex flex-wrap items-center justify-center gap-1.5" aria-label="Pagination">
+        <nav
+          className="mt-8 flex flex-wrap items-center justify-center gap-1.5"
+          aria-label="Pagination"
+        >
           <button
             type="button"
             disabled={page <= 1 || isFetching}
@@ -382,7 +408,9 @@ export function ExploreView() {
 
           {getPageNumbers(page, totalPages).map((p, i) =>
             p === "…" ? (
-              <span key={`gap-${i}`} className="px-1 text-muted">…</span>
+              <span key={`gap-${i}`} className="px-1 text-muted">
+                …
+              </span>
             ) : (
               <button
                 key={p}
@@ -391,7 +419,9 @@ export function ExploreView() {
                 aria-current={p === page ? "page" : undefined}
                 onClick={() => goToPage(p)}
                 className={`inline-flex size-10 items-center justify-center rounded-full text-sm font-medium ${
-                  p === page ? "bg-ink text-on-primary" : "border border-line bg-card text-ink hover:bg-chip"
+                  p === page
+                    ? "bg-ink text-on-primary"
+                    : "border border-line bg-card text-ink hover:bg-chip"
                 }`}
               >
                 {p}
@@ -425,5 +455,14 @@ export function ExploreView() {
         </div>
       ) : null}
     </section>
+  );
+}
+
+// মূল এক্সপোর্ট করা কম্পোনেন্ট যা Suspense দিয়ে মোড়ানো থাকবে
+export function ExploreView() {
+  return (
+    <Suspense fallback={<div className="text-center py-10">Loading...</div>}>
+      <ExploreContent />
+    </Suspense>
   );
 }

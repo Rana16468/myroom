@@ -9,6 +9,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Eye,
+  Flag,
   ImageIcon,
   LoaderCircle,
   MapPin,
@@ -49,6 +50,7 @@ type MyRoom = {
   neighborhood: string;
   photos: string[];
   viewCount: number;
+  reportCount: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -60,7 +62,6 @@ type Meta = {
   totalPages: number;
 };
 
-/** Shape used by the profile listing card, built from the API response. */
 type CardListing = {
   id: string;
   address: string;
@@ -70,6 +71,7 @@ type CardListing = {
   neighborhood?: string;
   photos: string[];
   views: number;
+  report: number;
   createdAt?: string;
 };
 
@@ -147,6 +149,7 @@ const fromApi = (room: MyRoom): CardListing => ({
   neighborhood: htmlToPlainText(room.neighborhood),
   photos: room.photos ?? [],
   views: room.viewCount ?? 0,
+  report: room.reportCount ?? 0,
   createdAt: room.createdAt,
 });
 
@@ -239,7 +242,6 @@ export function ProfileView() {
         </div>
       </header>
 
-      {/* সিম্পল প্রোফাইল কার্ড (ইমেজ অনুযায়ী সাজানো) */}
       <section className="overflow-hidden rounded-3xl border border-line bg-card p-4 shadow-card sm:p-5">
         <div className="flex items-center gap-4">
           {profile?.photo ? (
@@ -533,25 +535,26 @@ function ProfileListingCard({
         <p className="mt-1 text-xs text-muted">{listing.neighborhood}</p>
       ) : null}
 
-      <div className="relative mt-2 aspect-4/3 overflow-hidden rounded-xl bg-chip">
-        {photo ? (
-          <>
-            <button
-              type="button"
-              className="group absolute inset-0 block size-full cursor-zoom-in overflow-hidden"
-              aria-label={`Enlarge listing photo ${index + 1} of ${photos.length}`}
-              onClick={() => setPhotoViewerOpen(true)}
-            >
-              <img
-                src={photo}
-                alt={`${listing.types || "Room"} listing, photo ${index + 1} of ${photos.length}`}
-                className="h-full w-full object-cover transition-transform duration-300 ease-out group-hover:scale-110 group-focus-visible:scale-110 motion-reduce:transition-none"
-                loading="lazy"
-              />
-            </button>
+      {/* শুধুমাত্র ছবি থাকলে এই সেকশনটি রেন্ডার হবে */}
+      {photo ? (
+        <div className="relative mt-2 aspect-4/3 overflow-hidden rounded-xl bg-chip">
+          <button
+            type="button"
+            className="group absolute inset-0 block size-full cursor-zoom-in overflow-hidden"
+            aria-label={`Enlarge listing photo ${index + 1} of ${photos.length}`}
+            onClick={() => setPhotoViewerOpen(true)}
+          >
+            <img
+              src={photo}
+              alt={`${listing.types || "Room"} listing, photo ${index + 1} of ${photos.length}`}
+              className="h-full w-full object-cover transition-transform duration-300 ease-out group-hover:scale-110 group-focus-visible:scale-110 motion-reduce:transition-none"
+              loading="lazy"
+            />
+          </button>
 
-            {photos.length > 1 ? (
-              <>
+          {photos.length > 1 ? (
+            <>
+              {index > 0 ? (
                 <button
                   type="button"
                   className="absolute top-1/2 left-2 inline-flex size-9 -translate-y-1/2 items-center justify-center rounded-full bg-card/90 text-ink shadow-card z-10"
@@ -560,33 +563,55 @@ function ProfileListingCard({
                 >
                   <ChevronLeft className="size-4" />
                 </button>
-                <button
-                  type="button"
-                  className="absolute top-1/2 right-2 inline-flex size-9 -translate-y-1/2 items-center justify-center rounded-full bg-card/90 text-ink shadow-card z-10"
-                  aria-label="Next photo"
-                  onClick={() => step(1)}
-                >
-                  <ChevronRight className="size-4" />
-                </button>
-              </>
-            ) : null}
-          </>
-        ) : (
-          <span className="absolute inset-0 flex items-center justify-center text-sm font-medium text-muted">
-            No photo yet
-          </span>
-        )}
+              ) : null}
 
-        <span className="absolute bottom-2 left-2 z-10 inline-flex items-center gap-1.5 rounded-md bg-ink/80 px-2 py-1 text-xs font-medium text-on-primary">
-          <Eye className="size-3" aria-hidden="true" />
-          <span>{listing.views.toLocaleString()} views</span>
-          {photos.length > 1 ? (
-            <span aria-label={`Photo ${index + 1} of ${photos.length}`}>
-              · <ImageIcon className="inline size-3" aria-hidden="true" /> {index + 1}/{photos.length}
-            </span>
+              <button
+                type="button"
+                className="absolute top-1/2 right-2 inline-flex size-9 -translate-y-1/2 items-center justify-center rounded-full bg-card/90 text-ink shadow-card z-10"
+                aria-label="Next photo"
+                onClick={() => step(1)}
+              >
+                <ChevronRight className="size-4" />
+              </button>
+            </>
           ) : null}
-        </span>
-      </div>
+
+          {/* ছবির ওপরের কাউন্ট */}
+          <span className="absolute bottom-2 left-2 z-10 inline-flex items-center gap-1.5 rounded-md bg-ink/80 px-2 py-1 text-xs font-medium text-on-primary">
+            <Eye className="size-3" aria-hidden="true" />
+            <span>
+              <b>{listing.views.toLocaleString()} views</b>
+            </span>
+            <span>
+              · <b> {listing.report.toLocaleString()} reports</b>
+            </span>
+            {photos.length > 1 ? (
+              <span aria-label={`Photo ${index + 1} of ${photos.length}`}>
+                · <ImageIcon className="inline size-3" aria-hidden="true" /> {index + 1}/
+                {photos.length}
+              </span>
+            ) : null}
+          </span>
+        </div>
+      ) : null}
+
+      {/* যদি ছবি না থাকে, তবে এই জায়গায় ভিউ এবং রিপোর্ট কাউন্ট দেখানোর জন্য আলাদা সেকশন */}
+      {!photo ? (
+        <div className="mt-2 flex items-center gap-3 text-xs text-muted">
+          <span className="inline-flex items-center gap-1">
+            <Eye className="size-3.5" aria-hidden="true" />
+            <span>
+              <b>{listing.views.toLocaleString()} views</b>
+            </span>
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <Flag className="size-3.5" aria-hidden="true" />
+            <span>
+              <b>{listing.report.toLocaleString()} reports</b>
+            </span>
+          </span>
+        </div>
+      ) : null}
 
       <div className="mt-2.5 inline-block rounded-lg bg-chip px-2.5 py-1.5 text-xs text-muted">
         Posted on {formatDate(listing.createdAt)}

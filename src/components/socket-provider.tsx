@@ -72,12 +72,12 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
       activeSocket.on("connect", () => {
         setConnected(true);
         setError(null);
-        console.info("Socket connected.");
+        // console.info("Socket connected.");
       });
 
       activeSocket.on("disconnect", (reason) => {
         setConnected(false);
-        console.info("Socket disconnected:", reason);
+        // console.info("Socket disconnected:", reason);
       });
 
       activeSocket.on("connect_error", (connectionError: Error) => {
@@ -110,11 +110,11 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
       });
 
       activeSocket.on("user-online", (data: { userId?: string }) => {
-        console.info("User online:", data?.userId);
+        // console.info("User online:", data?.userId);
       });
 
       activeSocket.on("user-offline", (data: { userId?: string }) => {
-        console.info("User offline:", data?.userId);
+        // console.info("User offline:", data?.userId);
       });
 
       activeSocket.on("error", (socketError: unknown) => {

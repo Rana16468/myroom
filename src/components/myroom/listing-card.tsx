@@ -1,8 +1,8 @@
 "use client";
 
 import DOMPurify from "dompurify";
-import Link from "next/link";
-import { ChevronLeft, ChevronRight, Eye, Flag, MapPin, Phone, Plus, Share2, X } from "lucide-react";
+
+import { ChevronLeft, ChevronRight, Flag, MapPin, Phone, Share2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { formatPhone, initials, normalizeListingType, telHref } from "@/data/rooms";
@@ -182,7 +182,8 @@ export function ListingCard({
         {expanded ? "See less" : "Read more"}
       </button>
 
-      {photos.length > 0 ? (
+      {/* যদি ছবি থাকে শুধু তখনই দেখাবে, ছবি না থাকলে এই সেকশন रেন্ডার হবে না */}
+      {photo ? (
         <div className="relative mt-2 aspect-4/3 overflow-hidden rounded-xl bg-chip">
           <button
             type="button"
@@ -203,17 +204,22 @@ export function ListingCard({
 
           {photos.length > 1 ? (
             <>
+              {/* লেফট অ্যারো: শুধুমাত্র তখন দেখাবে যখন বর্তমান ইনডেক্স ০ এর বেশি (অর্থাৎ প্রথম ছবি পার হয়ে অন্য ছবিতে যাওয়া হয়েছে) */}
+              {index > 0 ? (
+                <button
+                  type="button"
+                  className="absolute top-1/2 left-2 inline-flex size-9 -translate-y-1/2 items-center justify-center rounded-full bg-card/90 text-ink shadow-card z-10"
+                  aria-label="Previous photo"
+                  onClick={() => step(-1)}
+                >
+                  <ChevronLeft className="size-4" />
+                </button>
+              ) : null}
+
+              {/* রাইট অ্যারো: একের অধিক ছবি থাকলে সবসময় দেখাবে */}
               <button
                 type="button"
-                className="absolute top-1/2 left-2 inline-flex size-9 -translate-y-1/2 items-center justify-center rounded-full bg-card/90 text-ink shadow-card"
-                aria-label="Previous photo"
-                onClick={() => step(-1)}
-              >
-                <ChevronLeft className="size-4" />
-              </button>
-              <button
-                type="button"
-                className="absolute top-1/2 right-2 inline-flex size-9 -translate-y-1/2 items-center justify-center rounded-full bg-card/90 text-ink shadow-card"
+                className="absolute top-1/2 right-2 inline-flex size-9 -translate-y-1/2 items-center justify-center rounded-full bg-card/90 text-ink shadow-card z-10"
                 aria-label="Next photo"
                 onClick={() => step(1)}
               >

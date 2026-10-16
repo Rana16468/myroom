@@ -51,9 +51,7 @@ function Header({ compactHidden }: { compactHidden: boolean }) {
     >
       <div className="mx-auto flex min-h-12 w-full max-w-6xl items-center gap-2 px-4 py-1.5 sm:min-h-16 sm:gap-3 sm:py-2">
         <Link href="/" className="flex min-w-0 flex-1 items-center gap-2.5 overflow-hidden">
-          <span className="inline-flex size-8 items-center justify-center rounded-lg bg-primary text-on-primary sm:size-9 sm:rounded-xl">
-            <Home className="size-4" aria-hidden="true" />
-          </span>
+          
           <span className="min-w-0">
             <span className="block text-base italic font-bold tracking-tight sm:text-lg">
               MyRoom
