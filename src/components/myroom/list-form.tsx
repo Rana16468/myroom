@@ -18,6 +18,7 @@ import {
   ListOrdered,
   LoaderCircle,
   Search,
+  SwitchCamera,
   TriangleAlert,
   type LucideIcon,
 } from "lucide-react";
@@ -86,13 +87,12 @@ export function ListRoomForm() {
   const [locationOpen, setLocationOpen] = useState(false);
   const [locationSearch, setLocationSearch] = useState("");
   const [activeLocationIndex, setActiveLocationIndex] = useState(0);
+  const [cameraOpen, setCameraOpen] = useState(false);
   const initializedEditId = useRef<string | null>(null);
 
   const { data: profileData, error: profileError } = useAvaterQuery({});
   const [createListing, { isLoading: loadingCreateListing, error: errorCreateListing }] =
     useCreateListingMutation();
-
- 
 
   const {
     data: specificRoomResponse,
@@ -213,12 +213,16 @@ export function ListRoomForm() {
     });
   };
 
-  const onFiles = async (list: FileList | null) => {
-    if (!list) return;
+  /**
+   * Shared pipeline for BOTH file uploads and camera captures.
+   * Validates, builds previews, and stores the File so `submit` can send it.
+   */
+  const addFiles = async (incoming: File[]) => {
+    if (incoming.length === 0) return;
     const addedPreviews: string[] = [];
     const addedFiles: File[] = [];
 
-    for (const file of Array.from(list)) {
+    for (const file of incoming) {
       if (!file.type.startsWith("image/")) {
         dispatch(showToast(`${file.name} is not an image`));
         continue;
@@ -244,7 +248,24 @@ export function ListRoomForm() {
       ...current,
       photos: [...current.photos, ...addedPreviews].slice(0, MAX_PHOTOS),
       files: [...current.files, ...addedFiles].slice(0, MAX_PHOTOS),
+      // Jump to the newest photo so the user sees what they just added.
+      photoIndex: Math.min(
+        current.photos.length + addedPreviews.length - 1,
+        MAX_PHOTOS - 1,
+      ),
     }));
+  };
+
+  const onFiles = (list: FileList | null) => {
+    if (list) void addFiles(Array.from(list));
+  };
+
+  const openCamera = () => {
+    if (draft.photos.length >= MAX_PHOTOS) {
+      dispatch(showToast(`You can upload up to ${MAX_PHOTOS} photos`));
+      return;
+    }
+    setCameraOpen(true);
   };
 
   const submit = async (event: React.FormEvent) => {
@@ -465,7 +486,7 @@ export function ListRoomForm() {
           </div>
         ) : null}
 
-        <div className="mt-3 flex justify-center">
+        <div className="mt-3 flex flex-wrap justify-center gap-2">
           <label className="inline-flex h-9 cursor-pointer items-center justify-center rounded-md bg-primary px-5 text-xs font-semibold text-on-primary hover:bg-primary-deep">
             {editId ? "Add photos (optional)" : "Upload photo (optional)"}
             <input
@@ -474,12 +495,27 @@ export function ListRoomForm() {
               multiple
               className="sr-only"
               onChange={(event) => {
-                void onFiles(event.target.files);
+                onFiles(event.target.files);
                 event.target.value = "";
               }}
             />
           </label>
+
+          <button
+            type="button"
+            onClick={openCamera}
+            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-primary px-5 text-xs font-semibold text-primary hover:bg-primary/10"
+          >
+            <Camera className="size-4" aria-hidden="true" />
+            Take a photo
+          </button>
         </div>
+
+        <CameraCaptureDialog
+          open={cameraOpen}
+          onOpenChange={setCameraOpen}
+          onCapture={(file) => void addFiles([file])}
+        />
 
         <hr className="mt-4 border-line" />
 
@@ -631,11 +667,14 @@ export function ListRoomForm() {
           <h2 className="text-base font-semibold">Personal Info</h2>
 
           <Field label="Name" error={errors.name} required className="mt-3">
-            <input className="field bg-chip" value={profileData?.data?.name} readOnly />
+            <input
+              className="field bg-chip"
+              value={profileData?.data?.name ?? draft.name}
+              readOnly
+            />
           </Field>
 
           <Field
-
             label="Contact number for inquiries"
             error={errors.phone}
             required
@@ -645,7 +684,7 @@ export function ListRoomForm() {
               className="field bg-chip"
               inputMode="numeric"
               placeholder="01XXXXXXXXX"
-              value={profileData?.data?.phone}
+              value={profileData?.data?.phone ?? draft.phone}
               readOnly
             />
           </Field>
@@ -691,6 +730,219 @@ export function ListRoomForm() {
       </div>
     </form>
   );
+}
+
+/* -------------------------------------------------------------------------- */
+/*                            Live camera capture                             */
+/* -------------------------------------------------------------------------- */
+
+function CameraCaptureDialog({
+  open,
+  onOpenChange,
+  onCapture,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onCapture: (file: File) => void;
+}) {
+  return (
+    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-40 bg-ink/60" />
+        <Dialog.Content className="fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-3xl bg-card p-4 shadow-card">
+          <Dialog.Title className="text-lg font-semibold">Take a photo</Dialog.Title>
+          <Dialog.Description className="mt-1 text-sm text-muted">
+            Allow camera access, frame your room, then tap capture.
+          </Dialog.Description>
+
+          {/* Mounted only while open, so the camera is always released on close. */}
+          <CameraView
+            onCapture={(file) => {
+              onCapture(file);
+              onOpenChange(false);
+            }}
+            onCancel={() => onOpenChange(false)}
+          />
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
+}
+
+function CameraView({
+  onCapture,
+  onCancel,
+}: {
+  onCapture: (file: File) => void;
+  onCancel: () => void;
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
+  const [status, setStatus] = useState<"starting" | "ready" | "error">("starting");
+  const [error, setError] = useState("");
+  const [capturing, setCapturing] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    let stream: MediaStream | null = null;
+
+    const start = async () => {
+      setStatus("starting");
+      setError("");
+
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setError("Camera isn’t available in this browser, or the page isn’t served over HTTPS.");
+        setStatus("error");
+        return;
+      }
+
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: facingMode },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+          },
+          audio: false,
+        });
+
+        if (cancelled) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+
+        const video = videoRef.current;
+        if (!video) return;
+        video.srcObject = stream;
+        await video.play();
+        if (!cancelled) setStatus("ready");
+      } catch (err) {
+        if (cancelled) return;
+        setError(getCameraErrorMessage(err));
+        setStatus("error");
+      }
+    };
+
+    void start();
+
+    // Stop the camera when closing, unmounting, or switching cameras.
+    return () => {
+      cancelled = true;
+      stream?.getTracks().forEach((track) => track.stop());
+      if (videoRef.current) videoRef.current.srcObject = null;
+    };
+  }, [facingMode]);
+
+  const capture = () => {
+    const video = videoRef.current;
+    if (!video || status !== "ready" || !video.videoWidth) return;
+
+    setCapturing(true);
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const context = canvas.getContext("2d");
+    if (!context) {
+      setCapturing(false);
+      setError("Couldn’t capture the photo. Please try again.");
+      return;
+    }
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    canvas.toBlob(
+      (blob) => {
+        setCapturing(false);
+        if (!blob) {
+          setError("Couldn’t capture the photo. Please try again.");
+          return;
+        }
+        const file = new File([blob], `camera-${Date.now()}.jpg`, {
+          type: "image/jpeg",
+          lastModified: Date.now(),
+        });
+        onCapture(file);
+      },
+      "image/jpeg",
+      0.9,
+    );
+  };
+
+  return (
+    <div className="mt-4">
+      <div className="relative aspect-[3/2] overflow-hidden rounded-xl bg-ink">
+        <video
+          ref={videoRef}
+          playsInline
+          muted
+          className={`h-full w-full object-cover ${facingMode === "user" ? "-scale-x-100" : ""}`}
+        />
+
+        {status === "starting" ? (
+          <div className="absolute inset-0 flex items-center justify-center gap-2 text-sm text-on-primary">
+            <LoaderCircle className="size-5 animate-spin" aria-hidden="true" />
+            Starting camera…
+          </div>
+        ) : null}
+
+        {status === "error" ? (
+          <div
+            className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-chip px-6 text-center text-sm text-muted"
+            role="alert"
+          >
+            <CameraOff className="size-6" aria-hidden="true" />
+            {error}
+          </div>
+        ) : null}
+      </div>
+
+      <div className="mt-4 flex items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="inline-flex min-h-11 items-center justify-center rounded-full border border-line px-5 text-sm font-semibold hover:bg-paper"
+        >
+          Cancel
+        </button>
+
+        <button
+          type="button"
+          onClick={capture}
+          disabled={status !== "ready" || capturing}
+          aria-label="Capture photo"
+          className="inline-flex size-14 items-center justify-center rounded-full bg-primary text-on-primary hover:bg-primary-deep disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <Camera className="size-6" aria-hidden="true" />
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setFacingMode((mode) => (mode === "environment" ? "user" : "environment"))}
+          disabled={status === "error"}
+          aria-label="Switch camera"
+          className="inline-flex size-11 items-center justify-center rounded-full border border-line hover:bg-paper disabled:opacity-40"
+        >
+          <SwitchCamera className="size-5" aria-hidden="true" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function getCameraErrorMessage(err: unknown): string {
+  const name = (err as { name?: string })?.name;
+  switch (name) {
+    case "NotAllowedError":
+    case "SecurityError":
+      return "Camera permission was denied. Allow camera access in your browser settings and try again.";
+    case "NotFoundError":
+    case "OverconstrainedError":
+      return "No camera was found on this device.";
+    case "NotReadableError":
+    case "AbortError":
+      return "The camera is being used by another app. Close it and try again.";
+    default:
+      return "Couldn’t start the camera. Please try again.";
+  }
 }
 
 /* -------------------------------------------------------------------------- */

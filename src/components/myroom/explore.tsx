@@ -1,14 +1,26 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
-import { ChevronLeft, ChevronRight, LoaderCircle, RefreshCw, Search, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, RefreshCw, Search, X } from "lucide-react";
 import { LISTING_TYPES } from "@/data/rooms";
-import { ListingCard, type ApiListing } from "@/components/myroom/listing-card";
+import {
+  ListingCard,
+  ListingGridSkeleton,
+  type ApiListing,
+} from "@/components/myroom/listing-card";
 import locationData from "@/utility/locations.json";
 import { useGetAllRoomListQuery } from "../redux/features/roomListApi";
 import { useSearchParams } from "next/navigation";
+import {
+  detectAndStoreUserCity,
+  setSearchKeywords,
+  setSearchLocation,
+  setSearchType,
+  useRecommendationData,
+} from "@/lib/recommendation-store";
+import Link from "next/link";
 
-const PAGE_SIZE =12 ;
+const PAGE_SIZE = 12;
 const SUGGESTION_LIMIT = 8;
 
 function normalizeLocationQuery(value: string) {
@@ -36,6 +48,20 @@ function getLocationSuggestions(query: string) {
       (first, second) => second.weight - first.weight || first.label.localeCompare(second.label),
     )
     .slice(0, SUGGESTION_LIMIT);
+}
+
+// Location-looking input -> search_location, anything else -> keywords
+function trackSearchActivity(rawQuery: string, rawType: string) {
+  const text = rawQuery.trim();
+  if (text) {
+    const [bestMatch] = getLocationSuggestions(text);
+    if (bestMatch) {
+      setSearchLocation(bestMatch.name);
+    } else {
+      setSearchKeywords(text.toLowerCase().split(/\s+/));
+    }
+  }
+  if (rawType) setSearchType(rawType);
 }
 
 function useIsDesktop() {
@@ -79,7 +105,6 @@ function getPageNumbers(current: number, total: number): (number | "…")[] {
   return pages;
 }
 
-// মূল লজিক কম্পোনেন্ট যেখানে useSearchParams ব্যবহার হচ্ছে
 function ExploreContent() {
   const isDesktop = useIsDesktop();
   const [query, setQuery] = useState("");
@@ -92,6 +117,14 @@ function ExploreContent() {
   const [mobileList, setMobileList] = useState<ApiListing[]>([]);
   const [highlight, setHighlight] = useState<string | null>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
+
+  // Recommendation tracking: live data from localStorage + one-time city detection
+  const recommendation = useRecommendationData();
+  const hasViewedRooms = recommendation.viewed_room_ids.length > 0;
+
+  useEffect(() => {
+    void detectAndStoreUserCity();
+  }, []);
 
   const params = useMemo(() => {
     const p: Record<string, string | number> = { page, limit: PAGE_SIZE };
@@ -112,7 +145,6 @@ function ExploreContent() {
   const pageItems: ApiListing[] = currentData?.data?.data ?? [];
   const meta = currentData?.data?.meta;
   const totalPages: number = meta?.totalPages ?? 1;
-  const totalCount: number = meta?.totalCount ?? 0;
 
   // filters / device changed -> start again from page 1
   useEffect(() => {
@@ -160,6 +192,7 @@ function ExploreContent() {
     setType(selectedType);
     setSuggestionsOpen(false);
     setActiveSuggestion(0);
+    trackSearchActivity(name, selectedType);
   };
 
   useEffect(() => {
@@ -181,6 +214,7 @@ function ExploreContent() {
     setSearchQuery(query.trim());
     setType(selectedType);
     setSuggestionsOpen(false);
+    trackSearchActivity(query, selectedType);
   };
   const clearFilters = () => {
     setQuery("");
@@ -296,7 +330,10 @@ function ExploreContent() {
               <span className="sr-only">Room type</span>
               <select
                 value={selectedType}
-                onChange={(event) => setSelectedType(event.target.value)}
+                onChange={(event) => {
+                  setSelectedType(event.target.value);
+                  setSearchType(event.target.value); // ignored when empty
+                }}
                 className="h-11 w-full appearance-none rounded-xl border border-line bg-card px-3 text-sm text-ink outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
               >
                 <option value="">Types</option>
@@ -317,7 +354,18 @@ function ExploreContent() {
           </div>
 
           <div className="mt-2 flex items-center justify-between gap-2 text-xs text-muted">
-            <span></span>
+            {hasViewedRooms ? (
+              <span>
+                <Link
+                  href="/recommendationAi"
+                  className="inline-flex min-h-8 items-center font-semibold text-primary hover:underline"
+                >
+                  Recommendation AI
+                </Link>
+              </span>
+            ) : (
+              <span></span>
+            )}
             <div className="flex items-center gap-3">
               {searchQuery || type || query || selectedType ? (
                 <button
@@ -359,9 +407,12 @@ function ExploreContent() {
       ) : null}
 
       {initialLoading ? (
-        <div className="mt-6 flex items-center justify-center gap-2 rounded-2xl border border-line bg-card py-14 text-sm text-muted">
-          <LoaderCircle className="size-5 animate-spin text-primary" aria-hidden="true" />
-          Loading room listings…
+        <div
+          className="mt-5 grid min-w-0 grid-cols-1 gap-5 sm:mt-6 sm:grid-cols-2 sm:gap-4 xl:grid-cols-3"
+          aria-busy="true"
+          aria-label="Loading room listings"
+        >
+          <ListingGridSkeleton count={isDesktop ? 6 : 3} />
         </div>
       ) : rooms.length === 0 && !error ? (
         <div className="mx-auto mt-8 max-w-lg rounded-3xl border border-dashed border-line bg-card px-6 py-12 text-center">
@@ -380,13 +431,15 @@ function ExploreContent() {
         </div>
       ) : (
         <div
-          className={`mt-5 grid min-w-0 gap-3 transition-opacity sm:mt-6 sm:grid-cols-2 sm:gap-4 xl:grid-cols-3 ${
+          className={`mt-5 grid min-w-0 grid-cols-1 gap-5 transition-opacity sm:mt-6 sm:grid-cols-2 sm:gap-4 xl:grid-cols-3 ${
             isFetching && isDesktop ? "opacity-60" : ""
           }`}
         >
           {rooms.map((room) => (
             <ListingCard key={room.id} listing={room} highlighted={highlight === room.id} />
           ))}
+          {/* Mobile: skeleton cards while the next page loads */}
+          {!isDesktop && isFetching && page > 1 ? <ListingGridSkeleton count={2} /> : null}
         </div>
       )}
 
@@ -444,12 +497,7 @@ function ExploreContent() {
       {/* Mobile: infinite scroll sentinel */}
       {!isDesktop ? (
         <div ref={sentinelRef} className="mt-6 min-h-10 text-center" aria-live="polite">
-          {isFetching && page > 1 ? (
-            <span className="inline-flex items-center gap-2 text-sm text-muted">
-              <LoaderCircle className="size-4 animate-spin text-primary" aria-hidden="true" />
-              Loading more rooms…
-            </span>
-          ) : !hasMore && rooms.length > 0 ? (
+          {!isFetching && !hasMore && rooms.length > 0 ? (
             <p className="text-xs text-muted">You’re all caught up.</p>
           ) : null}
         </div>
@@ -458,10 +506,18 @@ function ExploreContent() {
   );
 }
 
-// মূল এক্সপোর্ট করা কম্পোনেন্ট যা Suspense দিয়ে মোড়ানো থাকবে
+// মূল এক্সপোর্ট করা কম্পোনেন্ট যা Suspense দিয়ে মোড়ানো থাকবে
 export function ExploreView() {
   return (
-    <Suspense fallback={<div className="text-center py-10">Loading...</div>}>
+    <Suspense
+      fallback={
+        <section className="mx-auto max-w-5xl">
+          <div className="mt-5 grid min-w-0 grid-cols-1 gap-5 sm:mt-6 sm:grid-cols-2 sm:gap-4 xl:grid-cols-3">
+            <ListingGridSkeleton count={3} />
+          </div>
+        </section>
+      }
+    >
       <ExploreContent />
     </Suspense>
   );

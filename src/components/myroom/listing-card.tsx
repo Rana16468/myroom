@@ -9,6 +9,7 @@ import { formatPhone, initials, normalizeListingType, telHref } from "@/data/roo
 import { setReportId, showToast } from "@/store/myroom";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { enqueueRoomView, type ViewInteraction } from "@/lib/view-count-queue";
+import { addViewedRoomId } from "@/lib/recommendation-store";
 import type { PublicRoomListing } from "../redux/features/roomListApi";
 
 export type ApiListing = PublicRoomListing;
@@ -66,6 +67,66 @@ function isCallableBdPhone(value: string | undefined): value is string {
   return /^(?:01[3-9]\d{8}|8801[3-9]\d{8})$/.test(digits);
 }
 
+/* -------------------------------------------------------------------------- */
+/*  Loading skeletons (same structure as ListingCard so the layout won't jump) */
+/* -------------------------------------------------------------------------- */
+
+export function ListingCardSkeleton() {
+  return (
+    <div
+      className="flex min-w-0 animate-pulse flex-col overflow-hidden rounded-2xl border border-line bg-card p-3 shadow-card"
+      aria-hidden="true"
+    >
+      {/* owner row */}
+      <div className="flex items-center gap-2">
+        <div className="size-8 shrink-0 rounded-full bg-chip" />
+        <div className="min-w-0 flex-1 space-y-1.5">
+          <div className="h-3 w-28 rounded bg-chip" />
+          <div className="h-2.5 w-16 rounded bg-chip" />
+        </div>
+        <div className="h-6 w-16 rounded-full bg-chip" />
+      </div>
+
+      {/* address */}
+      <div className="mt-3 h-3 w-3/4 rounded bg-chip" />
+
+      {/* description */}
+      <div className="mt-3 space-y-2">
+        <div className="h-3 w-full rounded bg-chip" />
+        <div className="h-3 w-11/12 rounded bg-chip" />
+        <div className="h-3 w-2/3 rounded bg-chip" />
+      </div>
+
+      {/* photo */}
+      <div className="mt-3 aspect-4/3 w-full rounded-xl bg-chip" />
+
+      {/* posted on */}
+      <div className="mt-2.5 h-7 w-36 rounded-lg bg-chip" />
+
+      {/* action buttons */}
+      <div className="mt-2.5 grid grid-cols-3 gap-2">
+        <div className="h-10 rounded-xl bg-chip" />
+        <div className="h-10 rounded-xl bg-chip" />
+        <div className="h-10 rounded-xl bg-chip" />
+      </div>
+    </div>
+  );
+}
+
+export function ListingGridSkeleton({ count = 6 }: { count?: number }) {
+  return (
+    <>
+      {Array.from({ length: count }).map((_, i) => (
+        <ListingCardSkeleton key={i} />
+      ))}
+    </>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Listing card                                                               */
+/* -------------------------------------------------------------------------- */
+
 export function ListingCard({
   listing,
   highlighted,
@@ -95,7 +156,11 @@ export function ListingCard({
   const phone = isCallableBdPhone(phoneCandidate) ? phoneCandidate : undefined;
   const typeLabel = normalizeListingType(listing.types) ?? listing.types;
 
+  // Called by: Read more, Zoom, Direct Call, Share, Report.
+  // Saves the room id to localStorage (viewed_room_ids) only on these user actions.
   const recordView = (interaction: ViewInteraction) => {
+    addViewedRoomId(listing.id);
+
     void enqueueRoomView(listing.id, interaction).catch((error: unknown) => {
       console.error(`Could not queue the ${interaction} view for room ${listing.id}.`, error);
       dispatch(showToast("This view could not be queued. Please try again."));
@@ -182,7 +247,7 @@ export function ListingCard({
         {expanded ? "See less" : "Read more"}
       </button>
 
-      {/* যদি ছবি থাকে শুধু তখনই দেখাবে, ছবি না থাকলে এই সেকশন रেন্ডার হবে না */}
+      {/* যদি ছবি থাকে শুধু তখনই দেখাবে, ছবি না থাকলে এই সেকশন রেন্ডার হবে না */}
       {photo ? (
         <div className="relative mt-2 aspect-4/3 overflow-hidden rounded-xl bg-chip">
           <button
@@ -204,7 +269,7 @@ export function ListingCard({
 
           {photos.length > 1 ? (
             <>
-              {/* লেফট অ্যারো: শুধুমাত্র তখন দেখাবে যখন বর্তমান ইনডেক্স ০ এর বেশি (অর্থাৎ প্রথম ছবি পার হয়ে অন্য ছবিতে যাওয়া হয়েছে) */}
+              {/* লেফট অ্যারো: শুধুমাত্র তখন দেখাবে যখন বর্তমান ইনডেক্স ০ এর বেশি (অর্থাৎ প্রথম ছবি পার হয়ে অন্য ছবিতে যাওয়া হয়েছে) */}
               {index > 0 ? (
                 <button
                   type="button"
@@ -216,7 +281,7 @@ export function ListingCard({
                 </button>
               ) : null}
 
-              {/* রাইট অ্যারো: একের অধিক ছবি থাকলে সবসময় দেখাবে */}
+              {/* রাইট অ্যারো: একের অধিক ছবি থাকলে সবসময় দেখাবে */}
               <button
                 type="button"
                 className="absolute top-1/2 right-2 inline-flex size-9 -translate-y-1/2 items-center justify-center rounded-full bg-card/90 text-ink shadow-card z-10"
