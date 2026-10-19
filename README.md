@@ -1,3 +1,75 @@
+# MyRoom
+
+A house listing web application built with Next.js.
+
+## Prerequisites
+
+- [Node.js](https://nodejs.org/) v18 or higher
+- npm (comes with Node.js)
+- A Google OAuth Client ID and Client Secret ([Google Cloud Console](https://console.cloud.google.com/apis/credentials))
+
+## Getting Started
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/Rana16468/myroom
+cd myroom
+```
+
+### 2. Install dependencies
+
+```bash
+npm install
+```
+
+### 3. Set up environment variables
+
+Create a `.env` file in the root of the project and add the following:
+
+```env
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+NEXT_PUBLIC_IP_INFO_URL=https://api.ipify.org/?format=json
+NEXT_PUBLIC_API_BASE_URL=https://house-listing-backend-3i16.onrender.com/api/v1
+NEXT_PUBLIC_SOCKET_URL=https://house-listing-backend-3i16.onrender.com
+```
+
+| Variable | Description |
+| --- | --- |
+| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | Google OAuth client ID used for Google login |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret (server-side only, keep it private) |
+| `NEXT_PUBLIC_IP_INFO_URL` | IP info API URL used to detect the user's location |
+| `NEXT_PUBLIC_API_BASE_URL` | Base URL of the backend REST API |
+| `NEXT_PUBLIC_SOCKET_URL` | Backend URL used for the real-time socket connection |
+
+> **Note:** Never commit your `.env` file. Make sure `.env` is listed in `.gitignore`.
+
+### 4. Run the development server
+
+```bash
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+## Available Scripts
+
+| Command | Description |
+| --- | --- |
+| `npm run dev` | Start the development server |
+| `npm run build` | Create a production build |
+| `npm start` | Run the production build |
+
+## Backend
+
+The app connects to the hosted backend at:
+`https://house-listing-backend-3i16.onrender.com`
+
+> The backend runs on Render's free tier, so the first request may take a few seconds to wake up.
+
+
+
 # 🏠 Room Rental Platform – Frontend
 
 > A modern room-finding web app built with **Next.js** and **Redux**, featuring a custom **AI recommendation system** that analyzes user behavior and suggests rooms matching each user's exact needs.
