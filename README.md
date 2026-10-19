@@ -35,13 +35,13 @@ NEXT_PUBLIC_API_BASE_URL=https://house-listing-backend-3i16.onrender.com/api/v1
 NEXT_PUBLIC_SOCKET_URL=https://house-listing-backend-3i16.onrender.com
 ```
 
-| Variable | Description |
-| --- | --- |
-| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | Google OAuth client ID used for Google login |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret (server-side only, keep it private) |
-| `NEXT_PUBLIC_IP_INFO_URL` | IP info API URL used to detect the user's location |
-| `NEXT_PUBLIC_API_BASE_URL` | Base URL of the backend REST API |
-| `NEXT_PUBLIC_SOCKET_URL` | Backend URL used for the real-time socket connection |
+| Variable                       | Description                                                    |
+| ------------------------------ | -------------------------------------------------------------- |
+| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | Google OAuth client ID used for Google login                   |
+| `GOOGLE_CLIENT_SECRET`         | Google OAuth client secret (server-side only, keep it private) |
+| `NEXT_PUBLIC_IP_INFO_URL`      | IP info API URL used to detect the user's location             |
+| `NEXT_PUBLIC_API_BASE_URL`     | Base URL of the backend REST API                               |
+| `NEXT_PUBLIC_SOCKET_URL`       | Backend URL used for the real-time socket connection           |
 
 > **Note:** Never commit your `.env` file. Make sure `.env` is listed in `.gitignore`.
 
@@ -55,11 +55,11 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## Available Scripts
 
-| Command | Description |
-| --- | --- |
-| `npm run dev` | Start the development server |
-| `npm run build` | Create a production build |
-| `npm start` | Run the production build |
+| Command         | Description                  |
+| --------------- | ---------------------------- |
+| `npm run dev`   | Start the development server |
+| `npm run build` | Create a production build    |
+| `npm start`     | Run the production build     |
 
 ## Backend
 
@@ -67,8 +67,6 @@ The app connects to the hosted backend at:
 `https://house-listing-backend-3i16.onrender.com`
 
 > The backend runs on Render's free tier, so the first request may take a few seconds to wake up.
-
-
 
 # 🏠 Room Rental Platform – Frontend
 
@@ -88,40 +86,46 @@ This is the frontend of a room-finding platform where people can search for **fa
 
 ### 🛠 Tech Stack
 
-| Area              | Technology                         |
-| ----------------- | ---------------------------------- |
-| Framework         | Next.js                            |
-| Language          | TypeScript / JavaScript            |
-| State & Data Fetching | Redux (Redux Toolkit)          |
-| AI                | Custom behavior-based recommendation system |
-| Backend API       | Node.js + MongoDB + Prisma (separate repo) |
+| Area                  | Technology                                  |
+| --------------------- | ------------------------------------------- |
+| Framework             | Next.js                                     |
+| Language              | TypeScript / JavaScript                     |
+| State & Data Fetching | Redux (Redux Toolkit)                       |
+| AI                    | Custom behavior-based recommendation system |
+| Backend API           | Node.js + MongoDB + Prisma (separate repo)  |
 
 ### ✨ Key Features
 
 **🤖 AI-Powered Recommendations**
+
 - Custom recommendation system integrated directly into the frontend experience
 - Analyzes user behavior (such as the rooms they view, save, and search for)
 - Suggests rooms based on the user's **exact needs**, not just generic results
 - Recommendations improve as the user interacts more with the platform
 
 **🔍 Room Search & Discovery**
+
 - Browse listings by category: `Family`, `Bachelor`, `Sublet`, `Hostel`, `Office`
 - Filter by area, neighborhood, and property type
 - Room detail pages with address, description, and photo gallery
 
 **❤️ Saved Rooms**
+
 - Save favorite rooms and view them later
 - Duplicate saves are prevented
 
 **🚩 Report Listings**
+
 - Report suspicious listings as `Wrong Number`, `Misleading Photos`, or `Scam / Spam`
 
 **👤 User Accounts**
+
 - Sign up / log in and manage your profile
 - Role-based access for `USER` and `ADMIN`
 - Users can post and manage their own room listings
 
 **⚡ Performance & UX**
+
 - Server-side rendering and fast page loads with Next.js
 - Centralized state and API caching with Redux
 - Fully responsive design for mobile, tablet, and desktop
@@ -193,40 +197,46 @@ Feel free to reach out for questions or feedback.
 
 ### 🛠 ব্যবহৃত প্রযুক্তি
 
-| ক্ষেত্র              | প্রযুক্তি                           |
-| ------------------- | ----------------------------------- |
-| ফ্রেমওয়ার্ক          | Next.js                             |
-| ভাষা                | TypeScript / JavaScript             |
-| স্টেট ও ডেটা ফেচিং    | Redux (Redux Toolkit)               |
-| এআই                 | কাস্টম বিহেভিয়ার-ভিত্তিক রিকমেন্ডেশন সিস্টেম |
-| ব্যাকএন্ড API         | Node.js + MongoDB + Prisma (আলাদা রিপোজিটরি) |
+| ক্ষেত্র            | প্রযুক্তি                                     |
+| ------------------ | --------------------------------------------- |
+| ফ্রেমওয়ার্ক       | Next.js                                       |
+| ভাষা               | TypeScript / JavaScript                       |
+| স্টেট ও ডেটা ফেচিং | Redux (Redux Toolkit)                         |
+| এআই                | কাস্টম বিহেভিয়ার-ভিত্তিক রিকমেন্ডেশন সিস্টেম |
+| ব্যাকএন্ড API      | Node.js + MongoDB + Prisma (আলাদা রিপোজিটরি)  |
 
 ### ✨ প্রধান ফিচারসমূহ
 
 **🤖 এআই-চালিত রিকমেন্ডেশন**
+
 - ফ্রন্টএন্ড অভিজ্ঞতার সাথে সরাসরি যুক্ত একটি কাস্টম রিকমেন্ডেশন সিস্টেম
 - ইউজারের আচরণ বিশ্লেষণ করে (যেমন কোন রুম দেখছে, সেভ করছে ও সার্চ করছে)
 - সাধারণ ফলাফলের বদলে ইউজারের **সুনির্দিষ্ট প্রয়োজন** অনুযায়ী রুম সাজেস্ট করে
 - ইউজার যত বেশি প্ল্যাটফর্ম ব্যবহার করে, রিকমেন্ডেশন তত নির্ভুল হয়
 
 **🔍 রুম সার্চ ও ডিসকভারি**
+
 - ক্যাটাগরি অনুযায়ী ব্রাউজ: `Family`, `Bachelor`, `Sublet`, `Hostel`, `Office`
 - এলাকা, মহল্লা ও প্রপার্টির ধরন অনুযায়ী ফিল্টার
 - ঠিকানা, বিবরণ ও ফটো গ্যালারিসহ রুমের ডিটেইল পেজ
 
 **❤️ সেভ করা রুম**
+
 - পছন্দের রুম সেভ করে পরে দেখার সুবিধা
 - একই রুম বারবার সেভ হওয়া আটকানো হয়
 
 **🚩 লিস্টিং রিপোর্ট**
+
 - সন্দেহজনক লিস্টিং রিপোর্ট করা যায়: `ভুল নম্বর`, `বিভ্রান্তিকর ছবি` বা `প্রতারণা / স্প্যাম`
 
 **👤 ইউজার অ্যাকাউন্ট**
+
 - সাইন আপ / লগইন ও প্রোফাইল ম্যানেজমেন্ট
 - `USER` ও `ADMIN` রোলভিত্তিক অ্যাক্সেস
 - ইউজাররা নিজের রুমের বিজ্ঞাপন পোস্ট ও পরিচালনা করতে পারে
 
 **⚡ পারফরম্যান্স ও ইউজার এক্সপেরিয়েন্স**
+
 - Next.js দিয়ে সার্ভার-সাইড রেন্ডারিং ও দ্রুত পেজ লোড
 - Redux দিয়ে কেন্দ্রীয় স্টেট ম্যানেজমেন্ট ও API ক্যাশিং
 - মোবাইল, ট্যাবলেট ও ডেস্কটপের জন্য সম্পূর্ণ রেসপনসিভ ডিজাইন

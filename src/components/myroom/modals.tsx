@@ -15,8 +15,6 @@ import {
   setFilterOpen,
   setReportId,
   showToast,
-  showCreate,
-  showLogin,
 } from "@/store/myroom";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import ErrorPage from "@/ErrorPage/ErrorPage";
@@ -260,24 +258,60 @@ function FilterModal() {
   );
 }
 
+// The backend answers with "Phone number is required" when the Google account
+// has no account yet (same signal your original login code already used).
+function isPhoneRequiredError(error: any) {
+  const message = String(error?.data?.message || error?.message || "");
+  return message.includes("Phone number is required");
+}
+
+function GoogleMark() {
+  return (
+    <svg viewBox="0 0 48 48" className="mx-auto size-9" aria-hidden="true">
+      <path
+        fill="#EA4335"
+        d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
+      />
+      <path
+        fill="#4285F4"
+        d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"
+      />
+      <path
+        fill="#34A853"
+        d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
+      />
+    </svg>
+  );
+}
+
 function AccountModal() {
   const dispatch = useAppDispatch();
-  const step = useAppSelector((state) => state.session.step);
   const draftPhone = useAppSelector((state) => state.session.draftPhone);
 
+  // The modal ALWAYS opens on "Account Creation" first, whichever way it was opened.
+  // "Log In" is only shown when the user taps "Already have an account? Log in".
+  const [view, setView] = useState<"create" | "login">("create");
   const [busy, setBusy] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [accountName, setAccountName] = useState("");
-  // Create flow: false = name + phone form, true = Google authentication
-  const [verifying, setVerifying] = useState(false);
+  // Set only after Google verified a NEW user (no account in the database yet).
+  // While it is null we show the Google screen; once set we show "Almost Done".
+  const [pendingProfile, setPendingProfile] = useState<GoogleAuthProfile | null>(null);
   const [createAccount] = useCreateAccountMutation();
 
   const isPhoneValid = isValidBdPhone(draftPhone);
   const isNameValid = accountName.trim().length >= 2;
   const canContinue = isNameValid && isPhoneValid;
 
-  // ---------- LOGIN ----------
-  async function handleLoginSuccess(response: CredentialResponse) {
+  // ---------- STEP 1: GOOGLE VERIFICATION (Account Creation / Log In modal) ----------
+  // Same handler for both modals: the database decides what happens next.
+  //  - account already exists  -> logged in right away, no name/phone step
+  //  - no account yet          -> "Almost Done" step (name from Google + phone)
+  async function handleGoogleSuccess(response: CredentialResponse) {
     if (!response.credential) {
       setErrorMsg("Google sign-in failed. Please try again.");
       return;
@@ -287,54 +321,46 @@ function AccountModal() {
     setErrorMsg("");
     try {
       const profile = await createGoogleAuthProfile(response.credential);
-      const res = await createAccount(profile).unwrap();
 
-      if (!tokenRecorded(res.data?.accessToken, TOKEN_NAME)) {
-        throw new Error("Could not save the login token.");
+      try {
+        const res = await createAccount(profile).unwrap();
+
+        if (!tokenRecorded(res.data?.accessToken, TOKEN_NAME)) {
+          throw new Error("Could not save the login token.");
+        }
+        dispatch(
+          authenticateUser({
+            name: profile.name,
+            email: profile.email,
+            phone: profile.phone ?? "",
+          }),
+        );
+      } catch (error: any) {
+        if (!isPhoneRequiredError(error)) throw error;
+
+        // New user -> take the name from Google and ask for the mobile number.
+        setAccountName(profile.name === "Unknown" ? "" : profile.name);
+        setPendingProfile(profile);
       }
-      dispatch(
-        authenticateUser({
-          name: profile.name,
-          email: profile.email,
-          phone: profile.phone ?? "",
-        }),
-      );
     } catch (error: any) {
-      console.error("Error during Google login:", error);
+      console.error("Error during Google sign-in:", error);
       const backendMessage = error?.data?.message || error?.message || "";
-
-      if (backendMessage.includes("Phone number is required")) {
-        // অ্যাকাউন্ট নেই → Create Account স্ক্রিনে রিডাইরেক্ট
-        setVerifying(false);
-        dispatch(showCreate());
-        setErrorMsg("No account found. Please enter your name and mobile number to sign up.");
-      } else {
-        setErrorMsg(backendMessage || "Could not log you in. Please try again.");
-      }
+      setErrorMsg(backendMessage || "Could not sign you in. Please try again.");
     } finally {
       setBusy(false);
     }
   }
 
-  // ---------- CREATE ACCOUNT (after Google auth) ----------
-  async function handleSignupGoogleSuccess(response: CredentialResponse) {
-    if (!response.credential) {
-      setErrorMsg("Google sign-up failed. Please try again.");
-      return;
-    }
-    if (!canContinue) {
-      setVerifying(false);
-      return;
-    }
+  // ---------- STEP 2: ALMOST DONE (new users only) ----------
+  async function handleCompleteSetup() {
+    if (!pendingProfile || !canContinue) return;
 
     setBusy(true);
     setErrorMsg("");
     try {
-      const googleProfile = await createGoogleAuthProfile(response.credential, draftPhone);
       const name = accountName.trim();
-
-      // ফর্মের নাম + ফোন, Google-এর বাকি তথ্যের সাথে একসাথে
-      const profile: GoogleAuthProfile = { ...googleProfile, name, phone: draftPhone };
+      // Edited name + phone from the form, everything else from Google.
+      const profile: GoogleAuthProfile = { ...pendingProfile, name, phone: draftPhone };
 
       const res = await createAccount(profile).unwrap();
       if (!tokenRecorded(res.data?.accessToken, TOKEN_NAME)) {
@@ -350,9 +376,8 @@ function AccountModal() {
   }
 
   function switchAccountStep(nextStep: "login" | "create") {
-    setVerifying(false);
     setErrorMsg("");
-    dispatch(nextStep === "login" ? showLogin() : showCreate());
+    setView(nextStep);
   }
 
   return (
@@ -368,48 +393,13 @@ function AccountModal() {
         </button>
       </div>
 
-      {step !== "create" ? (
-        /* ==================== LOG IN ==================== */
+      {pendingProfile ? (
+        /* ============ ALMOST DONE: name (editable) + mobile number ============ */
         <div className="px-1 pb-3 text-center">
-          <h2 className="text-2xl font-semibold tracking-tight">Log in</h2>
-          <p className="mt-1 text-sm text-muted">Quick log in with your Google account</p>
-
-          <div
-            className={`mt-6 flex justify-center ${busy ? "pointer-events-none opacity-50" : ""}`}
-          >
-            <GoogleLogin
-              onSuccess={handleLoginSuccess}
-              onError={() => setErrorMsg("Google login failed. Please try again.")}
-              shape="pill"
-              theme="outline"
-              size="large"
-              width="320"
-              text="signin_with"
-            />
-          </div>
-
-          {errorMsg && (
-            <p role="alert" className="mt-3 text-xs text-red-500">
-              {errorMsg}
-            </p>
-          )}
-
-          <p className="mt-5 text-sm text-muted">
-            New here?{" "}
-            <button
-              type="button"
-              className="font-semibold text-primary underline"
-              onClick={() => switchAccountStep("create")}
-            >
-              Create an account
-            </button>
-          </p>
-        </div>
-      ) : !verifying ? (
-        /* ============ CREATE ACCOUNT — STEP 1: NAME + PHONE ============ */
-        <div className="px-1 pb-3 text-center">
-          <h2 className="text-2xl font-semibold tracking-tight">Create Account</h2>
-          <p className="mt-1 text-sm text-muted">Enter your details to get started</p>
+          <GoogleMark />
+          <h2 className="mt-3 text-2xl font-semibold tracking-tight">
+            Almost Done{pendingProfile.name !== "Unknown" ? `, ${pendingProfile.name.split(" ")[0]}` : ""}!
+          </h2>
 
           <label className="mt-5 block text-left">
             <span className="text-sm font-semibold">Full Name</span>
@@ -461,22 +451,47 @@ function AccountModal() {
 
           <button
             type="button"
-            disabled={!canContinue}
-            onClick={() => {
-              setErrorMsg("");
-              setVerifying(true);
-            }}
+            disabled={!canContinue || busy}
+            onClick={() => void handleCompleteSetup()}
             className="mt-5 h-12 w-full rounded-full bg-primary text-sm font-semibold text-on-primary hover:bg-primary-deep disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Complete Account Setup
+            {busy ? "Creating your account..." : "Complete Account Setup"}
           </button>
 
           <p className="mt-3 text-xs text-muted">
-            By agreeing, you agree to the <span className="underline">Terms &amp; Conditions</span>{" "}
+            By continuing, you agree to the <span className="underline">Terms &amp; Conditions</span>{" "}
             and <span className="underline">Privacy Policy</span>.
           </p>
+        </div>
+      ) : view === "create" ? (
+        /* ==================== ACCOUNT CREATION (default) ==================== */
+        <div className="px-1 pb-3 text-center">
+          <h2 className="text-2xl font-semibold tracking-tight">Account Creation</h2>
+          <p className="mt-1 text-sm text-muted">Get all your listing in your Account</p>
 
-          <p className="mt-4 text-sm text-muted">
+          <div
+            className={`mt-6 flex justify-center ${busy ? "pointer-events-none opacity-50" : ""}`}
+          >
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={() => setErrorMsg("Google sign-in failed. Please try again.")}
+              shape="pill"
+              theme="outline"
+              size="large"
+              width="320"
+              text="continue_with"
+            />
+          </div>
+
+          {busy && <p className="mt-3 text-xs text-muted">Checking your account...</p>}
+
+          {errorMsg && (
+            <p role="alert" className="mt-3 text-xs text-red-500">
+              {errorMsg}
+            </p>
+          )}
+
+          <p className="mt-5 text-sm text-muted">
             Already have an account?{" "}
             <button
               type="button"
@@ -488,21 +503,17 @@ function AccountModal() {
           </p>
         </div>
       ) : (
-        /* ============ CREATE ACCOUNT — STEP 2: GOOGLE AUTH ============ */
+        /* ==================== LOG IN ==================== */
         <div className="px-1 pb-3 text-center">
-          <h2 className="text-2xl font-semibold tracking-tight">
-            Almost done, {accountName.trim().split(" ")[0]}!
-          </h2>
-          <p className="mt-1 text-sm text-muted">
-            Verify with Google to finish creating your account
-          </p>
+          <h2 className="text-2xl font-semibold tracking-tight">Log In</h2>
+          <p className="mt-1 text-sm text-muted">Get all your listing in your Account</p>
 
           <div
             className={`mt-6 flex justify-center ${busy ? "pointer-events-none opacity-50" : ""}`}
           >
             <GoogleLogin
-              onSuccess={handleSignupGoogleSuccess}
-              onError={() => setErrorMsg("Google sign-up failed. Please try again.")}
+              onSuccess={handleGoogleSuccess}
+              onError={() => setErrorMsg("Google login failed. Please try again.")}
               shape="pill"
               theme="outline"
               size="large"
@@ -511,7 +522,7 @@ function AccountModal() {
             />
           </div>
 
-          {busy && <p className="mt-3 text-xs text-muted">Creating your account...</p>}
+          {busy && <p className="mt-3 text-xs text-muted">Checking your account...</p>}
 
           {errorMsg && (
             <p role="alert" className="mt-3 text-xs text-red-500">
@@ -519,17 +530,16 @@ function AccountModal() {
             </p>
           )}
 
-          <button
-            type="button"
-            disabled={busy}
-            className="mt-5 text-xs text-muted underline disabled:opacity-50"
-            onClick={() => {
-              setVerifying(false);
-              setErrorMsg("");
-            }}
-          >
-            Edit name or mobile number
-          </button>
+          <p className="mt-5 text-sm text-muted">
+            New User?{" "}
+            <button
+              type="button"
+              className="font-semibold text-primary underline"
+              onClick={() => switchAccountStep("create")}
+            >
+              Create an Account
+            </button>
+          </p>
         </div>
       )}
     </Backdrop>
